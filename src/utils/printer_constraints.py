@@ -150,7 +150,8 @@ class PrintabilityAnalyzer:
             [
                 "Print with cutouts facing down for best edge quality",
                 "Use 0.2mm layer height for good detail resolution",
-                f"Set perimeter count to {self.constraints.perimeter_count} for strength",
+                f"Set perimeter count to {self.constraints.perimeter_count} "
+                f"for strength",
                 "Consider PETG or ASA for marine environment UV resistance",
                 "Print at 50-60mm/s for fine details, 100mm/s for infill",
             ]

@@ -1,70 +1,56 @@
-# Rudder Encoder Disk Architecture
+# Architecture Documentation
 
 ## Project Overview
 
-This project designs and generates a partial optical encoder disk for absolute position sensing of a sailboat rudder. The encoder uses Gray code patterns etched into concentric tracks to provide precise, absolute angular position feedback without requiring initialization or reference positioning.
-
-## Current Implementation Status
-
-**Version**: 1.1 (Audited October 2025)  
-**Status**: Production-Ready with Known Issues  
-**Overall Assessment**: 8.5/10 - Professional-grade implementation
-
-### Key Metrics
-- **Lines of Code**: ~2,500+ (excluding tests)
-- **Test Coverage**: Partial (unit tests for core modules, integration tests needed)
-- **Documentation**: Good (code docstrings, architecture docs, needs diagrams)
-- **Optimization**: Genetic algorithm with multi-objective fitness (50 generations default)
-- **Current Best Fitness**: 1.115 (optimized parameters in use)
-
-### What Works Well
-✅ **Gray Code Implementation**: Mathematically correct, well-tested  
-✅ **Modular Architecture**: Clean separation of concerns  
-✅ **Multiple Interfaces**: CLI, GUI, Makefile build system  
-✅ **Validation**: Comprehensive multi-layer validation  
-✅ **Optimization**: Sophisticated genetic algorithm with fixed parameter support  
-✅ **Manufacturing Awareness**: Considers 3D printing constraints  
-✅ **Type Safety**: Good use of type hints and dataclasses  
-
-### Known Limitations
-⚠️ **Manufacturing Constraints**: Inconsistency between 0.16mm and 0.4mm specs (See TODO-001)  
-⚠️ **Testing**: Missing integration tests and GUI tests (See TODO-002)  
-⚠️ **Validation**: Logic scattered across multiple modules (See TODO-003)  
-⚠️ **Documentation**: Missing architecture diagrams and sensitivity analysis (See TODO-004, TODO-008)  
-⚠️ **Error Messages**: Could provide more actionable suggestions (See TODO-006)  
-
-### Quick Start
-```bash
-# Install dependencies
-make install
-
-# Validate design
-make validate
-
-# Generate with default optimized parameters
-make generate
-
-# Run genetic optimization (optional)
-make optimize
-make apply-optimization
-
-# Launch GUI (requires PyQt6)
-make gui
-```
+This system generates parametric Gray code optical encoder disks for rudder position sensing in marine applications. The design produces 3D-printable encoder geometries using SolidPython to generate OpenSCAD files. Encoding is optimised for accurate position tracking within the spatial constraints of sailboat rudder installations.
 
 ## Design Philosophy
 
-### Core Principles
-1. **Absolute Positioning**: No homing or initialization required - position is immediately known on power-up
-2. **Marine Environment Resilience**: Robust against vibration, moisture, and electrical noise
-3. **3D Printable**: Manufacturable with standard FDM 3D printers
-4. **Optical Sensing**: Non-contact sensing eliminates wear and provides high reliability
+### Module Organisation
 
-### Why Gray Code?
-Gray code (also known as reflected binary code) ensures that only one bit changes between adjacent positions, providing several critical advantages:
-- **Error Reduction**: Mechanical misalignment or sensor noise affects only one bit
-- **Glitch Prevention**: No transient invalid states during transitions
-- **Noise Immunity**: Single-bit errors don't propagate to adjacent positions
+**Separation of Concerns**:
+- `gray_code/` - Gray code mathematics and validation
+- `geometry/` - 3D shape generation
+- `utils/` - Parameter management and constraints
+- `genetic_optimizer.py` - Optimisation engine
+- User interfaces decoupled from core logic
+
+**Validation Strategy**:
+- Parameters validated before geometry generation
+- Gray code patterns validated for correctness
+- Manufacturing constraints checked before export
+- Assembly validated before SCAD generation
+
+**Configuration System**:
+- Default parameters in `parameters.py`
+- Predefined configurations (default, high_res, compact)
+- User-customisable JSON configurations
+
+**Interface Options**:
+- CLI for automation and scripting
+- GUI for interactive design
+- Makefile for common operations
+- Python API for programmatic use
+
+### Technical Constraints
+
+**Absolute Positioning**: No homing or initialisation required. Position is immediately known on power-up.
+
+**Marine Environment**: Design accounts for vibration, moisture, and electrical noise.
+
+**3D Printing**: Manufacturable with standard FDM printers.
+
+**Optical Sensing**: Non-contact sensing eliminates wear.
+
+### Gray Code Properties
+
+Gray code ensures only one bit changes between adjacent positions:
+- Single-bit changes reduce error propagation
+- No transient invalid states during transitions
+- Mechanical misalignment affects only one bit
+- Enhanced noise immunity compared to binary encoding
+
+---
 
 ## Mathematical Foundation
 
@@ -80,8 +66,9 @@ For an n-bit Gray code representing position `pos`:
 ```python
 def gray_code_bits(pos, num_bits):
     gray_value = pos ^ (pos >> 1)
-    return [(gray_value >> i) & 1 for i in reversed(range(num_bits))]
+    return [(gray_value >> i) & 1 for i in range(num_bits)]
 ```
+Returns bits as `[LSB, ..., MSB]`. LSB corresponds to innermost track, MSB to outermost track.
 
 #### Position Resolution Calculations
 - **Angular Resolution**: `arc_angle_degrees / num_positions`
@@ -91,111 +78,54 @@ def gray_code_bits(pos, num_bits):
 ### Geometric Constraints
 
 #### 3D Printing Limitations
-- **Minimum Feature Size**: 0.4mm (typical nozzle diameter) - *Note: Optimizer code mentions 0.16mm capability*
+- **Minimum Feature Size**: 0.4mm (standard nozzle diameter)
 - **Minimum Gap Width**: 0.5mm for reliable printing
 - **Minimum Wall Thickness**: 1.2mm (3 perimeters × 0.4mm line width)
-- **Layer Adhesion**: Minimum 0.2mm layer height
+- **Layer Height**: Minimum 0.2mm for layer adhesion
+
+Note: Code comments reference 0.16mm capability for high-precision printers. Current parameters use 0.4mm constraints.
 
 #### Optical Sensing Requirements
-- **Gap Width**: Current optimized: 2.8° (provides ~2.84mm at outer radius)
-- **Track Separation**: Current optimized: 1.7mm spacing between tracks
-- **Track Width**: Current optimized: 3.3mm (adequate for most optical sensors)
-- **Edge Sharpness**: Clean transitions ensured by 0.1° cutout overlap
-- **Sensor Array**: Requires 5 sensors positioned radially to read 5 tracks simultaneously
+- **Gap Width**: Optimised to 2.8° (provides ~2.84mm at outer radius)
+- **Track Pitch**: 3.8mm (3.3mm track width + 0.5mm spacing)
+- **Sensor Alignment**: Multiple sensors positioned radially to read each track
 
-## Design Specifications
+### Design Specifications
 
-### Physical Parameters
+**Current Optimised Parameters**:
+- Positions: 32 (5-bit Gray code)
+- Outer Diameter: 116.2mm
+- Inner Diameter: 20mm
+- Disk Thickness: 2.3mm
+- Arc Angle: 57.1°
+- Track Width: 3.3mm
+- Track Spacing: 0.5mm
+- Gap Width: 2.8°
+- Limit Switch Bumpers: 5.8mm extension, 3.0° width
+- Optimisation Fitness: 1.115 (50 generations, population 30-50)
 
-#### Disk Geometry
-```python
-# Current OPTIMIZED dimensions (Genetic Algorithm - Fitness: 1.115)
-outer_diameter_mm = 116.2    # Total disk diameter
-inner_diameter_mm = 35.6     # Central mounting hole (rudder post)
-disk_thickness_mm = 2.3      # Sufficient for structural integrity
-arc_angle_deg = 57.1         # Rudder travel range
+**Angular Resolution**: 1.78° per position (32 positions across 57.1° arc)
 
-# Derived values
-radius_outer = outer_diameter_mm / 2  # 58.1mm
-radius_inner = inner_diameter_mm / 2  # 17.8mm
-usable_radius = radius_outer - radius_inner  # 40.3mm available
-```
-
-#### Encoding Parameters
-```python
-# Optimized for 3D printing and optical sensing (GA optimized)
-num_positions = 32          # 5-bit encoding (2^5 = 32)
-num_tracks = 5             # Matches encoding bits exactly
-track_width_mm = 3.3       # Adequate for optical sensors
-track_spacing_mm = 1.7     # Separation between tracks
-gap_width_deg = 2.8        # Optimized for reliable printing/sensing
-
-# Limit switch bumpers
-bump_extension_mm = 5.8    # Extension beyond disk edge
-bump_width_deg = 3.0       # Angular width of bumper
-
-# Validation
-angular_resolution = arc_angle_deg / num_positions  # 1.784° per position
-min_gap_size_mm = (gap_width_deg * π * radius_outer) / 180  # ~2.84mm
-```
-
-
-
-### Track Layout Strategy
-
-#### Radial Track Positioning
-**IMPORTANT**: Tracks are numbered from OUTER to INNER radius following standard Gray code encoder convention:
-- **Track 0 = Outermost = LSB (Least Significant Bit)** - Most frequent changes, longest physical segments
-- **Track N-1 = Innermost = MSB (Most Significant Bit)** - Least frequent changes, shortest physical segments
-
-This arrangement is optimal because:
-1. Fast-changing LSB on outer track = longer arc segments = easier optical detection
-2. Slow-changing MSB on inner track = shorter circumference compensated by longer angular spans
-
-```python
-for track_idx in range(num_tracks):
-    # Track 0 = outermost (LSB), Track N-1 = innermost (MSB)
-    track_outer_radius = radius_outer - (track_idx * track_pitch_mm)
-    track_inner_radius = track_outer_radius - track_width_mm
-    
-    # Validate track doesn't extend below inner radius
-    if track_inner_radius < radius_inner:
-        raise ValueError("Track extends below inner radius")
-```
-
-#### Bit Convention (Transmissive Encoder)
-For transmissive optical encoders (LED on one side, photodetector on other):
-- **'1' bit = Light passes through = Cutout/Open area**
-- **'0' bit = Light blocked = Solid material**
-
-This is the standard convention for absolute optical encoders.
-
-#### Angular Position Mapping
-Each position corresponds to a specific angular location:
-```python
-for position in range(num_positions):
-    position_angle = (position * arc_angle_deg) / num_positions
-    gray_code = position ^ (position >> 1)
-    # Extract bits for each track...
-```
+---
 
 ## Implementation Architecture
 
-### Core Components
+### 1. Parameter Management (`utils/`)
 
-#### 1. Parameter Management (`utils/parameters.py`)
 ```python
+# parameters.py - Parameter definitions
 @dataclass
 class EncoderParameters:
-    """Complete parameter set with computed properties"""
-    outer_diameter_mm: float = 116.2  # GA optimized
-    inner_diameter_mm: float = 35.6
-    # ... all parameters with defaults
-    
-    @property
-    def angular_resolution_deg(self) -> float:
-        """Computed property for angular resolution"""
-        return self.arc_angle_deg / self.num_positions
+    """Complete parameter set for encoder generation"""
+    num_positions: int = 32
+    outer_diameter_mm: float = 116.2
+    inner_diameter_mm: float = 20.0
+    disk_thickness_mm: float = 2.3
+    arc_angle_deg: float = 57.1
+    track_width_mm: float = 3.3
+    track_spacing_mm: float = 0.5
+    gap_width_deg: float = 2.8
+    # ... additional parameters
 
 class ParameterValidator:
     """Multi-layer validation of all parameters"""
@@ -207,7 +137,8 @@ class ParameterValidator:
         # Optical sensing requirements
 ```
 
-#### 2. Geometry Generation (`geometry/`)
+### 2. Geometry Generation (`geometry/`)
+
 ```python
 # arc_utils.py - Geometric primitives
 def create_arc_sector(inner_r, outer_r, start_deg, end_deg, height, segments=50):
@@ -235,7 +166,8 @@ class EncoderAssembler:
         # Optional mounting holes
 ```
 
-#### 3. Gray Code Engine (`gray_code/`)
+### 3. Gray Code Engine (`gray_code/`)
+
 ```python
 # converter.py - Core Gray code mathematics
 def binary_to_gray(n: int) -> int:
@@ -248,7 +180,7 @@ def extract_track_pattern(track_idx: int, num_positions: int, num_bits: int):
     """Extract binary pattern for entire track across all positions"""
     
 def analyze_track_transitions(pattern: List[int]) -> dict:
-    """Analyze run lengths, transitions, balance"""
+    """Analyse run lengths, transitions, balance"""
 
 # validator.py - Pattern validation
 class GrayCodeValidator:
@@ -260,7 +192,8 @@ class GrayCodeValidator:
         # Physical constraint checking
 ```
 
-#### 4. Genetic Optimizer (`genetic_optimizer.py`)
+### 4. Genetic Optimiser (`genetic_optimizer.py`)
+
 ```python
 class ParameterGenome:
     """Parameter set as genome for genetic algorithm"""
@@ -271,13 +204,13 @@ class ParameterGenome:
         """Uniform parameter crossover"""
 
 class EncoderOptimizer:
-    """Multi-objective genetic algorithm optimizer"""
+    """Multi-objective genetic algorithm optimiser"""
     def evaluate_fitness(self, genome) -> float:
         """Weighted fitness scoring:
         - Printability (40%)
         - Resolution (20%)
         - Encoding efficiency (20%)
-        - Size optimization (10%)
+        - Size optimisation (10%)
         - Manufacturability (10%)
         """
     
@@ -287,47 +220,50 @@ class EncoderOptimizer:
         # No early stopping for best results
 ```
 
-#### 5. User Interfaces
+### 5. User Interfaces
 
-**CLI Interface (`encoder_generator.py`)**
-```python
-# Command-line tool with multiple modes:
-# --config [default|high_res|compact|custom]
-# --validate, --info, --export-data
-# --no-bumpers, --verbose
+**CLI Interface** (`encoder_generator.py`):
+```bash
+# Command-line tool with multiple modes
+--config [default|high_res|compact|custom]
+--validate, --info, --export-data
+--no-bumpers, --verbose
 ```
 
-**GUI Interface (`gui_encoder_controller.py`)**
+**GUI Interface** (`gui_encoder_controller.py`):
 ```python
 class EncoderControllerGUI(QMainWindow):
     """PyQt6 GUI with:
     - Real-time parameter editing
-    - Background optimization worker threads
+    - Background optimisation worker threads
     - Validation and generation
-    - Results visualization
+    - Results visualisation
     """
 ```
 
-**Build System (`Makefile`)**
+**Build System** (`Makefile`):
 ```bash
 make validate        # Validate design
 make generate        # Generate SCAD
-make optimize        # Run GA optimization
+make optimize        # Run GA optimisation
 make apply-optimization  # Update defaults with results
 make gui            # Launch GUI
 make test           # Run test suite
 ```
 
-### File Structure
+---
+
+## File Structure
+
 ```
-rudder-encoder/
+gray-encoder-disk-generator/
 ├── pyproject.toml           # Poetry configuration
 ├── Makefile                 # Build automation
 ├── launch_gui.py            # GUI launcher script
 ├── src/
 │   ├── encoder_generator.py      # Main CLI generation script
-│   ├── genetic_optimizer.py      # GA optimization engine
-│   ├── apply_optimization.py     # Apply optimized parameters
+│   ├── genetic_optimizer.py      # GA optimisation engine
+│   ├── apply_optimization.py     # Apply optimised parameters
 │   ├── gui_encoder_controller.py # PyQt6 GUI interface
 │   ├── geometry/
 │   │   ├── __init__.py
@@ -348,48 +284,33 @@ rudder-encoder/
 │   └── test_assembly.py
 ├── output/                   # Generated files
 │   ├── *.scad               # OpenSCAD files
-│   ├── *.json               # Pattern data & optimization results
+│   ├── *.json               # Pattern data & optimisation results
 │   └── optimized_parameters.json # GA results
 └── docs/
     ├── ARCHITECTURE.md       # This document
-    ├── user_guide.md
-    └── assembly_instructions.md
+    └── FIX_SUMMARY.md       # Recent corrections
 ```
+
+---
 
 ## Data Flow and Generation Pipeline
 
 ### Standard Generation Workflow
 
-```mermaid
-graph TD
-    A[EncoderParameters] --> B[ParameterValidator]
-    B --> C{Valid?}
-    C -->|No| D[Report Errors]
-    C -->|Yes| E[GrayCodeValidator]
-    E --> F{Valid?}
-    F -->|No| D
-    F -->|Yes| G[PrintabilityAnalyzer]
-    G --> H{Valid?}
-    H -->|No| D
-    H -->|Yes| I[TrackGenerator]
-    I --> J[Generate Gray Code Patterns]
-    J --> K[Create Track Cutouts]
-    K --> L[EncoderAssembler]
-    L --> M[Create Base Disk]
-    L --> N[Create Limit Bumpers]
-    M --> O[Combine Components]
-    N --> O
-    K --> O
-    O --> P[Validate Assembly]
-    P --> Q{Valid?}
-    Q -->|No| D
-    Q -->|Yes| R[Generate OpenSCAD Code]
-    R --> S[Write .scad File]
-```
+1. **Parameter Loading**: Load from defaults or JSON configuration
+2. **Parameter Validation**: `ParameterValidator.validate_all()`
+3. **Gray Code Validation**: `GrayCodeValidator.validate_encoder_pattern()`
+4. **Printability Analysis**: `PrintabilityAnalyzer` checks manufacturing constraints
+5. **Track Pattern Generation**: `TrackGenerator.generate_all_tracks()`
+6. **Cutout Generation**: `TrackGenerator.generate_track_cutouts()`
+7. **Assembly**: `EncoderAssembler.assemble_complete_disk()`
+8. **Assembly Validation**: Check final geometry
+9. **OpenSCAD Generation**: `scad_render()` converts SolidPython to SCAD
+10. **File Output**: Write `.scad` file
 
 ### Key Data Transformations
 
-**1. Parameters → Gray Code Patterns**
+**Parameters → Gray Code Patterns**:
 ```python
 positions = 32  # User input
 tracks = 5      # Computed: ceil(log2(32)) = 5
@@ -398,24 +319,24 @@ tracks = 5      # Computed: ceil(log2(32)) = 5
 binary_position = position          # e.g., 5 = 0b00101
 gray_code = binary_position ^ (binary_position >> 1)  # 0b00111
 
-# Extract bits for each track (MSB to LSB):
+# Extract bits for each track (LSB to MSB):
 track_patterns = [
-    [bit_0 for position in positions],  # Outermost track
+    [bit_0 for position in positions],  # Innermost track (LSB)
     [bit_1 for position in positions],
     ...
-    [bit_4 for position in positions]   # Innermost track
+    [bit_4 for position in positions]   # Outermost track (MSB)
 ]
 ```
 
-**2. Track Patterns → 3D Cutouts**
+**Track Patterns → 3D Cutouts**:
 ```python
 for track_idx, pattern in enumerate(track_patterns):
-    # Calculate track radii (outer to inner)
-    track_outer_radius = outer_radius - (track_idx * track_pitch)
-    track_inner_radius = track_outer_radius - track_width
+    # Calculate track radii (inner to outer)
+    track_inner_radius = inner_radius + (track_idx * track_pitch)
+    track_outer_radius = track_inner_radius + track_width
     
-    # Find runs of zeros (cutouts)
-    for run_start, run_length in find_zero_runs(pattern):
+    # Find runs of ones (cutouts for transmissive encoder)
+    for run_start, run_length in find_one_runs(pattern):
         start_angle = run_start * angular_resolution
         end_angle = start_angle + (run_length * angular_resolution)
         
@@ -429,7 +350,7 @@ for track_idx, pattern in enumerate(track_patterns):
         )
 ```
 
-**3. Components → Final Assembly**
+**Components → Final Assembly**:
 ```python
 # Solid components (union)
 base_disk = create_full_arc_disk(inner_r, outer_r, arc_angle, thickness)
@@ -444,7 +365,7 @@ all_cutouts = union(*[cutout for cutout in track_cutouts])
 encoder_disk = difference(solid_parts, all_cutouts)
 ```
 
-**4. SolidPython → OpenSCAD**
+**SolidPython → OpenSCAD**:
 ```python
 # SolidPython generates OpenSCAD code
 scad_code = scad_render(encoder_disk)
@@ -513,21 +434,23 @@ union() {
 }
 ```
 
-## Optimization Workflow
+---
+
+## Optimisation Workflow
 
 ### Genetic Algorithm Design
 
-The project includes a sophisticated genetic algorithm optimizer that finds optimal track layout parameters while respecting fixed physical and encoding constraints.
+The genetic algorithm optimiser finds optimal track layout parameters whilst respecting fixed physical and encoding constraints.
 
-#### Optimization Strategy
+#### Optimisation Strategy
 
 **Fixed Parameters** (User Requirements):
 - Physical dimensions: `outer_diameter_mm`, `inner_diameter_mm`, `disk_thickness_mm`
-- Encoding specs: `num_positions`, `num_tracks`, `arc_angle_deg`
+- Encoding specifications: `num_positions`, `num_tracks`, `arc_angle_deg`
 - Bumper dimensions: `bump_extension_mm`, `bump_width_deg`
 - Manufacturing limits: `min_feature_size_mm`, `min_gap_size_mm`, `min_wall_thickness_mm`
 
-**Optimizable Parameters** (Track Layout Only):
+**Optimisable Parameters** (Track Layout):
 - `track_width_mm` - Width of each track (0.5mm - 8.0mm range)
 - `track_spacing_mm` - Spacing between tracks (0.2mm - 3.0mm range)
 - `gap_width_deg` - Angular gap width (0.3° - 6.0° range)
@@ -539,7 +462,7 @@ The project includes a sophisticated genetic algorithm optimizer that finds opti
 total_fitness = (
     0.40 * printability_score    # Can it be printed?
   + 0.20 * resolution_score      # Meets position requirements?
-  + 0.20 * efficiency_score      # Good Gray code utilization?
+  + 0.20 * efficiency_score      # Good Gray code utilisation?
   + 0.10 * size_score           # Close to target diameter?
   + 0.10 * manufacturability_score  # Easy to produce?
 )
@@ -559,7 +482,7 @@ if all_validations_pass:
 #### Algorithm Configuration
 
 ```python
-# Default settings (optimized for exploration)
+# Default settings
 generations = 50              # Full exploration, no early stopping
 population_size = 30         # Adequate diversity
 tournament_size = 5          # Selection pressure
@@ -568,32 +491,31 @@ mutation_rate = 10%          # Per-genome mutation probability
 mutation_range = ±20%        # Change magnitude
 ```
 
-**Key Design Decisions**:
-- **No early stopping**: Runs all generations for thorough solution space exploration
+**Algorithm Properties**:
+- **No early stopping**: Runs all generations for thorough exploration
 - **Tournament selection**: Balances selection pressure and diversity
 - **Elitism**: Prevents losing best solutions
 - **Bounded mutation**: Prevents invalid parameter combinations
 - **Uniform crossover**: Explores parameter combinations independently
 
-#### Typical Optimization Run
+#### Typical Optimisation Run
 
 ```bash
 make optimize
-# → Runs 50 generations × 30 population = 1500 evaluations
-# → Takes ~5-10 minutes on modern hardware
-# → Outputs: output/optimized_parameters.json
-# → Best fitness typically: 1.0 - 1.2 (>1.0 = excellent)
+# Runs 50 generations × 30 population = 1500 evaluations
+# Takes ~5-10 minutes on modern hardware
+# Outputs: output/optimized_parameters.json
+# Best fitness typically: 1.0 - 1.2
 
 make apply-optimization
-# → Updates src/utils/parameters.py with optimized values
-# → Creates backup: parameters.py.backup
-# → Ready for generation
+# Updates src/utils/parameters.py with optimised values
+# Creates backup: parameters.py.backup
 
 make generate
-# → Creates SCAD file with optimized parameters
+# Creates SCAD file with optimised parameters
 ```
 
-#### Convergence Behavior
+#### Convergence Behaviour
 
 Typical fitness evolution:
 ```
@@ -606,16 +528,16 @@ Generation 50: Best=1.115, Avg=1.034  (stable solution)
 
 Stagnation detection monitors improvement but doesn't stop early - continues exploring for potentially better solutions.
 
-#### Customizing Optimization
+#### Customising Optimisation
 
 **Via Code** (`genetic_optimizer.py`):
 ```python
-# Modify optimization goals
+# Modify optimisation goals
 goals = OptimizationGoals(
     min_positions=64,           # Require higher resolution
     max_positions=128,
     target_outer_diameter=120,  # Larger disk
-    weight_printability=0.5,    # Prioritize printability
+    weight_printability=0.5,    # Prioritise printability
     weight_resolution=0.3,      # Higher resolution importance
 )
 ```
@@ -626,45 +548,49 @@ goals = OptimizationGoals(
 - Monitor progress in real-time
 - Apply results automatically
 
+---
+
 ## Technical Constraints and Solutions
 
 ### 3D Printing Challenges
 
-#### Problem: Small Feature Sizes
-- **Issue**: Sub-millimeter gaps difficult to print reliably
-- **Solution**: Minimum 0.5mm gap width, validated in parameter checking
+**Small Feature Sizes**:
+- Issue: Sub-millimetre gaps difficult to print reliably
+- Solution: Minimum 0.5mm gap width, validated in parameter checking
 
-#### Problem: Overhangs and Bridges
-- **Issue**: Cutouts may create unsupported geometry
-- **Solution**: Ensure all cutouts are through-holes with minimal bridging
+**Overhangs and Bridges**:
+- Issue: Cutouts may create unsupported geometry
+- Solution: Ensure all cutouts are through-holes with minimal bridging
 
-#### Problem: Layer Adhesion
-- **Issue**: Thin walls may delaminate
-- **Solution**: Minimum 1.2mm wall thickness (3 perimeters × 0.4mm)
+**Layer Adhesion**:
+- Issue: Thin walls may delaminate
+- Solution: Minimum 1.2mm wall thickness (3 perimeters × 0.4mm)
 
 ### Optical Sensing Considerations
 
-#### Sensor Alignment
+**Sensor Alignment**:
 - Multiple sensors positioned radially to read each track
 - Sensor spacing must match track pitch exactly
 - Allowance for mechanical tolerance in mounting
 
-#### Light Path Optimization
+**Light Path Optimisation**:
 - Clean edge transitions for sharp optical contrast
 - Sufficient gap width for LED/photodiode pairs
 - Consider IR wavelengths for improved contrast
 
 ### Marine Environment Adaptations
 
-#### Material Considerations
+**Material Considerations**:
 - UV-resistant filaments (PETG, ASA)
 - Corrosion-resistant hardware
 - Sealed sensor housing design
 
-#### Mechanical Robustness
+**Mechanical Robustness**:
 - Adequate thickness for structural integrity
 - Flexible mounting to accommodate thermal expansion
 - Protection against impact and fouling
+
+---
 
 ## Validation and Testing Strategy
 
@@ -683,14 +609,16 @@ goals = OptimizationGoals(
 2. **Parameter Sweeping**: Test various configurations
 3. **Edge Case Testing**: Boundary conditions and error scenarios
 
-## Known Issues and TODO Items
+---
 
-### ✅ FIXED Issues (October 12, 2025)
+## Outstanding Issues
 
-#### FIXED-001: Track Order Reversal (MSB/LSB)
-**Status**: ✅ RESOLVED  
+### FIXED Issues (October 12, 2025)
+
+**FIXED-001: Track Order Reversal (MSB/LSB)**  
+**Status**: RESOLVED  
 **Issue**: Tracks were ordered with MSB on outermost track (incorrect)  
-**Fix Applied**: Modified `gray_code_bits()` to return `[LSB, ..., MSB]` instead of `[MSB, ..., LSB]`  
+**Fix**: Modified `gray_code_bits()` to return `[LSB, ..., MSB]` instead of `[MSB, ..., LSB]`  
 **Files Changed**:
 - `src/gray_code/converter.py` - Removed `reversed()` in bit extraction
 - `src/geometry/track_generator.py` - Updated comments
@@ -698,10 +626,10 @@ goals = OptimizationGoals(
 - `tests/test_gray_code.py` - Updated test expectations
 - `docs/ARCHITECTURE.md` - Updated documentation
 
-#### FIXED-002: Bit Inversion (Open vs. Closed)
-**Status**: ✅ RESOLVED  
+**FIXED-002: Bit Inversion (Open vs. Closed)**  
+**Status**: RESOLVED  
 **Issue**: Cutouts created for '0' bits instead of '1' bits (inverted logic)  
-**Fix Applied**: Changed cutout generation to create openings for '1' bits (transmissive encoder standard)  
+**Fix**: Changed cutout generation to create openings for '1' bits (transmissive encoder standard)  
 **Files Changed**:
 - `src/geometry/track_generator.py` - Changed `if bit_value == 0:` to `if bit_value == 1:`
 - Added documentation clarifying transmissive encoder convention
@@ -712,12 +640,12 @@ goals = OptimizationGoals(
 
 ### High Priority Issues
 
-#### TODO-001: Resolve Manufacturing Constraint Inconsistencies
+**TODO-001: Resolve Manufacturing Constraint Inconsistencies**  
 **Status**: Critical  
 **Location**: `parameters.py` vs `genetic_optimizer.py`  
 **Issue**: 
 - Default `parameters.py` specifies 0.4mm nozzle diameter constraints
-- Genetic optimizer code comments mention 0.16mm line width capability
+- Genetic optimiser code comments mention 0.16mm line width capability
 - Inconsistent min_feature_size, min_gap_size, min_wall_thickness values
 
 **Impact**: May generate designs that fail to print or are over-constrained
@@ -737,25 +665,25 @@ min_wall_thickness_mm = 1.2  # 3 perimeters × 0.4mm
 ```
 
 **Action Items**:
-- [ ] Survey target 3D printer capabilities
-- [ ] Update `parameters.py` with consistent constraints
-- [ ] Update `genetic_optimizer.py` to use same constraints
-- [ ] Document chosen constraint set in README
-- [ ] Add constraint validation in CI/CD
+- Survey target 3D printer capabilities
+- Update `parameters.py` with consistent constraints
+- Update `genetic_optimizer.py` to use same constraints
+- Document chosen constraint set in README
+- Add constraint validation
 
 ---
 
-#### TODO-002: Add Integration Tests
+**TODO-002: Add Integration Tests**  
 **Status**: High Priority  
 **Location**: `tests/`  
 **Issue**: Unit tests exist but no end-to-end integration tests
 
 **Tests Needed**:
-- [ ] Full generation pipeline (params → validate → generate → SCAD output)
-- [ ] Optimization workflow (optimize → apply → validate → generate)
-- [ ] GUI critical paths (parameter updates, validation, optimization)
-- [ ] Error handling and recovery scenarios
-- [ ] Multi-configuration generation (default, high_res, compact)
+- Full generation pipeline (params → validate → generate → SCAD output)
+- Optimisation workflow (optimize → apply → validate → generate)
+- GUI critical paths (parameter updates, validation, optimisation)
+- Error handling and recovery scenarios
+- Multi-configuration generation (default, high_res, compact)
 
 **Example Test Structure**:
 ```python
@@ -778,7 +706,7 @@ def test_full_generation_pipeline():
 
 ---
 
-#### TODO-003: Unify Validation Pipeline
+**TODO-003: Unify Validation Pipeline**  
 **Status**: Medium-High Priority  
 **Location**: Multiple modules  
 **Issue**: Validation logic scattered across multiple classes
@@ -815,53 +743,53 @@ class EncoderDesignValidator:
 ```
 
 **Action Items**:
-- [ ] Design `ValidationReport` data structure
-- [ ] Create `EncoderDesignValidator` orchestrator class
-- [ ] Refactor existing validators to common interface
-- [ ] Update all code to use unified validator
-- [ ] Add validation result caching
+- Design `ValidationReport` data structure
+- Create `EncoderDesignValidator` orchestrator class
+- Refactor existing validators to common interface
+- Update all code to use unified validator
+- Add validation result caching
 
 ---
 
 ### Medium Priority Improvements
 
-#### TODO-004: Document Optimization Results and Sensitivities
+**TODO-004: Document Optimisation Results and Sensitivities**  
 **Status**: Medium Priority  
 **Location**: `docs/`, `output/`  
-**Issue**: No documentation of optimization behavior and parameter sensitivities
+**Issue**: No documentation of optimisation behaviour and parameter sensitivities
 
 **Needed Documentation**:
-- [ ] How fitness components affect final design
-- [ ] Parameter sensitivity analysis (which params matter most)
-- [ ] Convergence behavior (typical generations needed)
-- [ ] Trade-offs between optimization goals
-- [ ] Example optimization runs with different starting points
-- [ ] Guidelines for setting custom optimization goals
+- How fitness components affect final design
+- Parameter sensitivity analysis (which parameters matter most)
+- Convergence behaviour (typical generations needed)
+- Trade-offs between optimisation goals
+- Example optimisation runs with different starting points
+- Guidelines for setting custom optimisation goals
 
 **Deliverables**:
 - `docs/OPTIMIZATION_GUIDE.md` with:
   - Fitness function explanation
   - Parameter influence charts
-  - Optimization best practices
+  - Optimisation best practices
   - Troubleshooting guide
 - Jupyter notebook with parameter sensitivity analysis
 
 ---
 
-#### TODO-005: Add Configuration Validation Before Optimization
+**TODO-005: Add Configuration Validation Before Optimisation**  
 **Status**: Medium Priority  
 **Location**: `genetic_optimizer.py`  
-**Issue**: Optimizer doesn't validate fixed parameters before starting
+**Issue**: Optimiser doesn't validate fixed parameters before starting
 
 **Problem Scenario**:
 ```python
 # User provides invalid fixed parameters
 fixed_params = EncoderParameters(
-    outer_diameter_mm=50,    # Too small!
+    outer_diameter_mm=50,    # Too small
     inner_diameter_mm=40,    # Leaves only 10mm for tracks
     num_tracks=10            # Can't fit 10 tracks in 10mm
 )
-# Optimizer runs 50 generations and finds no valid solution
+# Optimiser runs 50 generations and finds no valid solution
 ```
 
 **Solution**:
@@ -873,7 +801,7 @@ class EncoderOptimizer:
             self._validate_fixed_parameters()
     
     def _validate_fixed_parameters(self):
-        """Validate fixed params before optimization starts"""
+        """Validate fixed parameters before optimisation starts"""
         validator = ParameterValidator(self.fixed_params)
         valid, errors, warnings = validator.validate_all()
         if not valid:
@@ -881,27 +809,27 @@ class EncoderOptimizer:
 ```
 
 **Action Items**:
-- [ ] Add pre-optimization validation
-- [ ] Provide helpful error messages
-- [ ] Suggest parameter adjustments
-- [ ] Add `--dry-run` mode to check feasibility
+- Add pre-optimisation validation
+- Provide helpful error messages
+- Suggest parameter adjustments
+- Add `--dry-run` mode to check feasibility
 
 ---
 
-#### TODO-006: Improve Error Messages with Actionable Recommendations
+**TODO-006: Improve Error Messages with Actionable Recommendations**  
 **Status**: Medium Priority  
 **Location**: All validation modules  
 **Issue**: Error messages identify problems but don't suggest solutions
 
-**Current Behavior**:
+**Current Behaviour**:
 ```
-❌ Track spacing 0.3mm less than minimum 0.5mm
+Track spacing 0.3mm less than minimum 0.5mm
 ```
 
-**Desired Behavior**:
+**Desired Behaviour**:
 ```
-❌ Track spacing 0.3mm less than minimum 0.5mm
-💡 Suggestions:
+Track spacing 0.3mm less than minimum 0.5mm
+Suggestions:
    1. Increase track_spacing_mm to at least 0.5
    2. Reduce number of tracks from 8 to 6
    3. Increase outer_diameter_mm to 150 (provides more space)
@@ -922,14 +850,14 @@ class SmartValidator:
 ```
 
 **Action Items**:
-- [ ] Create `ValidationError` data class
-- [ ] Implement suggestion engine
-- [ ] Add fix suggestions to all validators
-- [ ] Create `--suggest-fixes` CLI option
+- Create `ValidationError` data class
+- Implement suggestion engine
+- Add fix suggestions to all validators
+- Create `--suggest-fixes` CLI option
 
 ---
 
-#### TODO-007: Add Performance Profiling for Large Designs
+**TODO-007: Add Performance Profiling for Large Designs**  
 **Status**: Medium Priority  
 **Location**: All generation modules  
 **Issue**: No performance metrics for complex designs
@@ -938,51 +866,51 @@ class SmartValidator:
 - Generation time for different position counts (8, 16, 32, 64, 128)
 - Memory usage for large track arrays
 - SCAD file size vs design complexity
-- Optimization time per generation
+- Optimisation time per generation
 
 **Action Items**:
-- [ ] Add `@profile` decorators to hot paths
-- [ ] Create performance benchmark suite
-- [ ] Document expected performance characteristics
-- [ ] Identify optimization opportunities
-- [ ] Add progress bars for long operations
+- Add profiling decorators to hot paths
+- Create performance benchmark suite
+- Document expected performance characteristics
+- Identify optimisation opportunities
+- Add progress bars for long operations
 
 ---
 
 ### Low Priority Enhancements
 
-#### TODO-008: Add Architecture Diagrams
+**TODO-008: Add Architecture Diagrams**  
 **Status**: Low Priority  
 **Location**: `docs/`  
 **Issue**: No visual architecture documentation
 
 **Diagrams Needed**:
-- [ ] System architecture diagram (module relationships)
-- [ ] Data flow diagram (parameter → SCAD)
-- [ ] Optimization workflow diagram
-- [ ] Gray code bit extraction illustration
-- [ ] Track layout visualization
-- [ ] Class hierarchy diagrams
+- System architecture diagram (module relationships)
+- Data flow diagram (parameter → SCAD)
+- Optimisation workflow diagram
+- Gray code bit extraction illustration
+- Track layout visualisation
+- Class hierarchy diagrams
 
-**Tools**: Mermaid, PlantUML, or draw.io
+Tools: Mermaid, PlantUML, or draw.io
 
 ---
 
-#### TODO-009: Create Example Configurations Library
+**TODO-009: Create Example Configurations Library**  
 **Status**: Low Priority  
 **Location**: `examples/` or `configs/`  
 **Issue**: Only three predefined configs (default, high_res, compact)
 
 **Additional Configs Needed**:
-- [ ] `micro.json` - Ultra-compact encoder (50mm)
-- [ ] `marine_heavy_duty.json` - Large, robust design
-- [ ] `high_precision.json` - Fine resolution (128+ positions)
-- [ ] `simple_8pos.json` - Beginner-friendly design
-- [ ] `experimental.json` - Pushing limits
+- `micro.json` - Ultra-compact encoder (50mm)
+- `marine_heavy_duty.json` - Large, robust design
+- `high_precision.json` - Fine resolution (128+ positions)
+- `simple_8pos.json` - Beginner-friendly design
+- `experimental.json` - Pushing limits
 
 ---
 
-#### TODO-010: Add Direct STL Export
+**TODO-010: Add Direct STL Export**  
 **Status**: Low Priority  
 **Location**: `encoder_generator.py`  
 **Issue**: Currently outputs only SCAD, requires OpenSCAD for STL conversion
@@ -998,14 +926,14 @@ python encoder_generator.py --output encoder.stl --format stl
 - Add DXF export for 2D laser cutting
 
 **Action Items**:
-- [ ] Research STL export options
-- [ ] Implement `--format` flag
-- [ ] Add batch export capability
-- [ ] Support multiple output formats (STL, DXF, STEP)
+- Research STL export options
+- Implement `--format` flag
+- Add batch export capability
+- Support multiple output formats (STL, DXF, STEP)
 
 ---
 
-#### TODO-011: Implement Parameter Templates System
+**TODO-011: Implement Parameter Templates System**  
 **Status**: Low Priority  
 **Location**: `utils/`, GUI  
 **Issue**: No way to save/load custom parameter sets
@@ -1019,29 +947,29 @@ python encoder_generator.py --output encoder.stl --format stl
 **GUI Integration**:
 - Template dropdown in GUI
 - Save/Load buttons
-- Template management dialog
+- Template management dialogue
 
 ---
 
-#### TODO-012: Add Genetic Optimizer Tests
+**TODO-012: Add Genetic Optimiser Tests**  
 **Status**: Low Priority  
 **Location**: `tests/`  
-**Issue**: No unit tests for genetic optimizer
+**Issue**: No unit tests for genetic optimiser
 
 **Tests Needed**:
-- [ ] Fitness function correctness
-- [ ] Mutation respects bounds
-- [ ] Crossover produces valid genomes
-- [ ] Tournament selection probabilities
-- [ ] Convergence detection
-- [ ] Fixed parameter preservation
+- Fitness function correctness
+- Mutation respects bounds
+- Crossover produces valid genomes
+- Tournament selection probabilities
+- Convergence detection
+- Fixed parameter preservation
 
 ---
 
 ## Future Enhancements
 
 ### Scalability Options
-- Parameterized design for different rudder applications
+- Parameterised design for different rudder applications
 - Multi-resolution encoding (coarse + fine tracks)
 - Redundant encoding for safety-critical applications
 
@@ -1053,7 +981,9 @@ python encoder_generator.py --output encoder.stl --format stl
 ### Manufacturing Alternatives
 - CNC machining option for higher precision
 - Laser cutting for metal versions
-- Injection molding for production quantities
+- Injection moulding for production quantities
+
+---
 
 ## References and Standards
 
@@ -1064,20 +994,5 @@ python encoder_generator.py --output encoder.stl --format stl
 
 ### Manufacturing Standards
 - 3D Printing: ISO/ASTM 52915 for additive manufacturing terminology
-- Optical Components: IEC 61203 for fiber optic sensors
+- Optical Components: IEC 61203 for fibre optic sensors
 - Marine Equipment: ABYC standards for sailboat electrical systems
-
----
-
-## Revision History
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2025-08-19 | GitHub Copilot | Initial draft |
-| 1.1 | 2025-10-12 | GitHub Copilot | Updated with actual implementation details, corrected parameters, added TODO section |
-| 1.2 | 2025-10-12 | GitHub Copilot | **CRITICAL FIXES**: Corrected track ordering (LSB outermost) and bit polarity ('1'=cutout) |
-
-**Document Version**: 1.2  
-**Last Updated**: October 12, 2025  
-**Author**: GitHub Copilot  
-**Review Status**: Audited, Updated, and Fixes Applied

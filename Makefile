@@ -57,10 +57,10 @@ apply-optimization: ## Apply optimized parameters to default config
 	poetry run python src/apply_optimization.py
 
 optimize-and-apply: optimize apply-optimization ## Run optimization and apply results
-	@echo "🎯 Optimization complete and applied!"
+	@echo "Optimization complete and applied!"
 
 gui: ## Launch the PyQt GUI controller
-	@echo "🖥️ Launching GUI controller..."
+	@echo "Launching GUI controller..."
 	poetry run python src/gui_encoder_controller.py
 
 clean: ## Clean generated files
@@ -75,7 +75,7 @@ clean: ## Clean generated files
 	find . -name "__pycache__" -type d -exec rm -rf {} +
 
 all: check-all test validate generate-all ## Complete build and validation pipeline
-	@echo "🎉 Complete build pipeline finished successfully!"
+	@echo "Complete build pipeline finished successfully!"
 
 check-all: lint type-check ## Run all quality checks
 

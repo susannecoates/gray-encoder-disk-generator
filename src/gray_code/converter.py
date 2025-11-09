@@ -253,7 +253,10 @@ def suggest_optimal_encoding(target_positions: int) -> dict:
                 "alternative_efficiency": 1.0,
                 "next_power_positions": next_positions,
                 "next_power_bits": next_bits,
-                "suggestion": f"Consider using {optimal_positions} positions for 100% efficiency",
+                "suggestion": (
+                    f"Consider using {optimal_positions} positions "
+                    f"for 100% efficiency"
+                ),
             }
         )
 

@@ -48,7 +48,11 @@ class OptimizationGoals:
 class ParameterGenome:
     """Represents a parameter set as a genome for genetic algorithm."""
 
-    def __init__(self, params: Optional[EncoderParameters] = None, fixed_params: Optional[EncoderParameters] = None):
+    def __init__(
+        self,
+        params: Optional[EncoderParameters] = None,
+        fixed_params: Optional[EncoderParameters] = None,
+    ):
         if params:
             self.params = params
         else:
@@ -58,30 +62,33 @@ class ParameterGenome:
         self.validated: bool = False
         self.fitness_components: Dict[str, float] = {}
 
-    def _random_parameters(self, fixed_params: Optional[EncoderParameters] = None) -> EncoderParameters:
-        """Generate random parameters within reasonable bounds, keeping fixed parameters unchanged."""
+    def _random_parameters(
+        self, fixed_params: Optional[EncoderParameters] = None
+    ) -> EncoderParameters:
+        """
+        Generate random parameters within reasonable bounds, keeping fixed
+        parameters unchanged.
+        """
         if fixed_params:
             # Start with fixed parameters
             params = EncoderParameters(
                 # Fixed physical dimensions (from user requirements)
                 outer_diameter_mm=fixed_params.outer_diameter_mm,
-                inner_diameter_mm=fixed_params.inner_diameter_mm, 
+                inner_diameter_mm=fixed_params.inner_diameter_mm,
                 disk_thickness_mm=fixed_params.disk_thickness_mm,
                 arc_angle_deg=fixed_params.arc_angle_deg,
                 num_positions=fixed_params.num_positions,
                 num_tracks=fixed_params.num_tracks,
                 bump_extension_mm=fixed_params.bump_extension_mm,
                 bump_width_deg=fixed_params.bump_width_deg,
-                
                 # Only randomize track layout parameters
                 track_width_mm=random.uniform(0.5, 5.0),  # Optimizable
-                track_spacing_mm=random.uniform(0.2, 2.0),  # Optimizable 
+                track_spacing_mm=random.uniform(0.2, 2.0),  # Optimizable
                 gap_width_deg=random.uniform(0.5, 4.0),  # Optimizable
-                
                 # Manufacturing constraints for 0.16mm line width
                 min_feature_size_mm=0.16,
                 min_gap_size_mm=0.2,
-                min_wall_thickness_mm=0.32  # 2 perimeters at 0.16mm
+                min_wall_thickness_mm=0.32,  # 2 perimeters at 0.16mm
             )
         else:
             # Fallback to old behavior if no fixed params provided
@@ -104,15 +111,18 @@ class ParameterGenome:
 
         return params
 
-    def mutate(self, mutation_rate: float = 0.1, fixed_params: Optional[EncoderParameters] = None):
-        """Apply random mutations to parameters, only changing optimizable track layout parameters."""
+    def mutate(
+        self,
+        mutation_rate: float = 0.1,
+        fixed_params: Optional[EncoderParameters] = None,
+    ):
+        """
+        Apply random mutations to parameters, only changing optimizable
+        track layout parameters.
+        """
         if random.random() < mutation_rate:
             # Only mutate track layout parameters - keep physical/encoding params fixed
-            optimizable_params = [
-                "track_width_mm",
-                "track_spacing_mm", 
-                "gap_width_deg"
-            ]
+            optimizable_params = ["track_width_mm", "track_spacing_mm", "gap_width_deg"]
 
             param_name = random.choice(optimizable_params)
             current_value = getattr(self.params, param_name)
@@ -123,9 +133,13 @@ class ParameterGenome:
 
             # Apply bounds based on 0.16mm manufacturing capability
             if param_name == "track_width_mm":
-                new_value = max(0.32, min(8.0, new_value))  # Min 2 line widths, reasonable max
+                new_value = max(
+                    0.32, min(8.0, new_value)
+                )  # Min 2 line widths, reasonable max
             elif param_name == "track_spacing_mm":
-                new_value = max(0.2, min(3.0, new_value))  # Min gap size, reasonable max
+                new_value = max(
+                    0.2, min(3.0, new_value)
+                )  # Min gap size, reasonable max
             elif param_name == "gap_width_deg":
                 new_value = max(0.3, min(6.0, new_value))  # Small gaps to large gaps
 
@@ -140,19 +154,32 @@ class ParameterGenome:
     def crossover(
         self, other: "ParameterGenome"
     ) -> Tuple["ParameterGenome", "ParameterGenome"]:
-        """Create offspring through crossover, only crossing over optimizable parameters."""
+        """
+        Create offspring through crossover, only crossing over optimizable
+        parameters.
+        """
         child1_params = EncoderParameters()
         child2_params = EncoderParameters()
 
-        # Copy all data attributes from self to both children (preserving fixed parameters)
+        # Copy all data attributes from self to both children
+        # (preserving fixed parameters)
         data_attrs = [
-            'outer_diameter_mm', 'inner_diameter_mm', 'disk_thickness_mm',
-            'arc_angle_deg', 'num_positions', 'num_tracks', 'track_width_mm',
-            'track_spacing_mm', 'gap_width_deg', 'bump_extension_mm',
-            'bump_width_deg', 'min_feature_size_mm', 'min_gap_size_mm', 
-            'min_wall_thickness_mm'
+            "outer_diameter_mm",
+            "inner_diameter_mm",
+            "disk_thickness_mm",
+            "arc_angle_deg",
+            "num_positions",
+            "num_tracks",
+            "track_width_mm",
+            "track_spacing_mm",
+            "gap_width_deg",
+            "bump_extension_mm",
+            "bump_width_deg",
+            "min_feature_size_mm",
+            "min_gap_size_mm",
+            "min_wall_thickness_mm",
         ]
-        
+
         for attr_name in data_attrs:
             if hasattr(self.params, attr_name):
                 setattr(child1_params, attr_name, getattr(self.params, attr_name))
@@ -180,7 +207,9 @@ class ParameterGenome:
 class EncoderOptimizer:
     """Genetic algorithm optimizer for encoder parameters."""
 
-    def __init__(self, goals: OptimizationGoals, fixed_params: Optional[EncoderParameters] = None):
+    def __init__(
+        self, goals: OptimizationGoals, fixed_params: Optional[EncoderParameters] = None
+    ):
         self.goals = goals
         self.fixed_params = fixed_params
         self.population: List[ParameterGenome] = []
@@ -192,11 +221,21 @@ class EncoderOptimizer:
 
     def initialize_population(self, size: int = 50):
         """Initialize random population."""
-        print(f"🧬 Initializing population of {size} genomes...")
+        print(f" Initializing population of {size} genomes...")
         if self.fixed_params:
-            print(f"📐 Using fixed parameters: {self.fixed_params.outer_diameter_mm:.1f}mm ⌀, {self.fixed_params.inner_diameter_mm:.1f}mm inner, {self.fixed_params.arc_angle_deg:.1f}° arc")
-            print(f"🎯 Optimizing only track layout parameters (width, spacing, gap)")
-            self.population = [ParameterGenome(fixed_params=self.fixed_params) for _ in range(size)]
+            print(
+                f" Using fixed parameters: "
+                f"{self.fixed_params.outer_diameter_mm:.1f}mm ⌀, "
+                f"{self.fixed_params.inner_diameter_mm:.1f}mm inner, "
+                f"{self.fixed_params.arc_angle_deg:.1f}° arc"
+            )
+            print(
+                f" Optimizing only track layout parameters "
+                f"(width, spacing, gap)"
+            )
+            self.population = [
+                ParameterGenome(fixed_params=self.fixed_params) for _ in range(size)
+            ]
         else:
             self.population = [ParameterGenome() for _ in range(size)]
 
@@ -330,9 +369,9 @@ class EncoderOptimizer:
         ):
             self.best_genome = ParameterGenome(self.population[0].params)
             self.best_genome.fitness = self.population[0].fitness
-            self.best_genome.fitness_components = self.population[
-                0
-            ].fitness_components.copy()
+            self.best_genome.fitness_components = (
+                self.population[0].fitness_components.copy()
+            )
 
         # Record fitness statistics
         fitnesses = [g.fitness for g in self.population]
@@ -340,8 +379,10 @@ class EncoderOptimizer:
         self.fitness_history.append(avg_fitness)
 
         print(
-            f"Generation {self.generation}: Best={self.population[0].fitness:.3f}, "
-            f"Avg={avg_fitness:.3f}, Valid={sum(1 for g in self.population if g.fitness > 0)}"
+            f"Generation {self.generation}: "
+            f"Best={self.population[0].fitness:.3f}, "
+            f"Avg={avg_fitness:.3f}, "
+            f"Valid={sum(1 for g in self.population if g.fitness > 0)}"
         )
 
         # Create next generation
@@ -367,7 +408,7 @@ class EncoderOptimizer:
         self, generations: int = 100, population_size: int = 50
     ) -> ParameterGenome:
         """Run the genetic algorithm optimization."""
-        print("🎯 Starting genetic algorithm optimization...")
+        print(" Starting genetic algorithm optimization...")
         print(
             f"Target: {self.goals.min_positions}-{self.goals.max_positions} positions, "
             f"{self.goals.target_outer_diameter}mm diameter"
@@ -378,8 +419,8 @@ class EncoderOptimizer:
 
         stagnation_counter = 0
         last_best_fitness = 0.0
-        
-        print(f"\n🔄 Starting evolution loop...")
+
+        print(f"\n Starting evolution loop...")
 
         for gen in range(generations):
             print(f"\n--- Generation {gen + 1}/{generations} ---")
@@ -387,38 +428,61 @@ class EncoderOptimizer:
 
             # Check for convergence
             if self.best_genome:
-                fitness_improvement = self.best_genome.fitness - last_best_fitness
-                print(f"💪 Fitness improvement: {fitness_improvement:.6f}")
-                
+                fitness_improvement = (
+                    self.best_genome.fitness - last_best_fitness
+                )
+                print(f" Fitness improvement: {fitness_improvement:.6f}")
+
                 if fitness_improvement < self.convergence_threshold:
                     stagnation_counter += 1
-                    print(f"⏸️  Stagnation counter: {stagnation_counter}/{self.stagnation_limit} (continuing to explore)")
+                    print(
+                        f"  Stagnation counter: "
+                        f"{stagnation_counter}/{self.stagnation_limit} "
+                        f"(continuing to explore)"
+                    )
                 else:
                     stagnation_counter = 0
                     last_best_fitness = self.best_genome.fitness
-                    print(f"📈 New best fitness: {last_best_fitness:.3f}")
+                    print(f" New best fitness: {last_best_fitness:.3f}")
 
                 # Note: Removed early stopping to fully explore solution space
-                # Algorithm will run all generations to find the absolute best solution
+                # Algorithm will run all generations to find the absolute
+                # best solution
 
                 # Log progress but continue exploring solution space
                 if self.best_genome.fitness > 1.2:
-                    print(f"💫 Excellent solution found (fitness: {self.best_genome.fitness:.3f}), continuing to explore solution space...")
+                    print(
+                        f" Excellent solution found "
+                        f"(fitness: {self.best_genome.fitness:.3f}), "
+                        f"continuing to explore solution space..."
+                    )
                 elif self.best_genome.fitness > 1.0:
-                    print(f"✨ Good solution found (fitness: {self.best_genome.fitness:.3f}), searching for better...")
-                
-                # Continue evolution to fully explore solution space - no early stopping!
-            else:
-                print("⚠️  No valid genome found yet")
+                    print(
+                        f" Good solution found "
+                        f"(fitness: {self.best_genome.fitness:.3f}), "
+                        f"searching for better..."
+                    )
 
-        print(f"\n🎯 Solution Space Exploration Complete!")
-        print(f"✅ Ran all {self.generation} generations to find optimal solution")
+                # Continue evolution to fully explore solution space
+                # No early stopping!
+            else:
+                print("  No valid genome found yet")
+
+        print(f"\n Solution Space Exploration Complete!")
+        print(
+            f" Ran all {self.generation} generations "
+            f"to find optimal solution"
+        )
         if self.best_genome:
-            print(f"🏆 Best fitness achieved: {self.best_genome.fitness:.3f}")
-            print(f"📈 Fitness evolution: {self.fitness_history[0]:.3f} → {self.best_genome.fitness:.3f}")
+            print(f" Best fitness achieved: {self.best_genome.fitness:.3f}")
+            print(
+                f" Fitness evolution: "
+                f"{self.fitness_history[0]:.3f} → "
+                f"{self.best_genome.fitness:.3f}"
+            )
             self._print_best_solution()
         else:
-            print("❌ No valid solution found")
+            print(" No valid solution found")
 
         return self.best_genome
 
@@ -431,20 +495,23 @@ class EncoderOptimizer:
         params = self.best_genome.params
         components = self.best_genome.fitness_components
 
-        print("\n🏆 Best Solution:")
+        print("\n Best Solution:")
         print(f"   Positions: {params.num_positions} ({params.num_tracks} tracks)")
         print(
-            f"   Dimensions: {params.outer_diameter_mm:.1f}mm ⌀, {params.arc_angle_deg:.1f}°"
+            f"   Dimensions: {params.outer_diameter_mm:.1f}mm ⌀, "
+            f"{params.arc_angle_deg:.1f}°"
         )
         print(
-            f"   Tracks: {params.track_width_mm:.1f}mm wide, {params.track_spacing_mm:.1f}mm spacing"
+            f"   Tracks: {params.track_width_mm:.1f}mm wide, "
+            f"{params.track_spacing_mm:.1f}mm spacing"
         )
         print(f"   Gap width: {params.gap_width_deg:.1f}°")
         print(
-            f"   Encoding efficiency: {params.num_positions / (2**params.num_tracks)*100:.1f}%"
+            f"   Encoding efficiency: "
+            f"{params.num_positions / (2**params.num_tracks)*100:.1f}%"
         )
 
-        print("\n📊 Fitness Breakdown:")
+        print("\n Fitness Breakdown:")
         for component, score in components.items():
             print(f"   {component.capitalize()}: {score:.3f}")
 
@@ -472,34 +539,30 @@ class EncoderOptimizer:
 
 def main():
     """Main optimization routine."""
-    print("🧬 Genetic Algorithm Encoder Optimization")
+    print(" Genetic Algorithm Encoder Optimization")
     print("=" * 50)
 
     # Define your fixed parameters (user requirements)
     fixed_params = EncoderParameters(
         # Fixed physical dimensions - DO NOT OPTIMIZE
         outer_diameter_mm=100.0,  # Your encoder width requirement
-        inner_diameter_mm=35.0,   # Your rudder post requirement (35mm radius)
-        arc_angle_deg=90.0,       # Updated default to 90° arc sweep
-        disk_thickness_mm=3.0,    # Reasonable thickness
-        
+        inner_diameter_mm=35.0,  # Your rudder post requirement (35mm radius)
+        arc_angle_deg=90.0,  # Updated default to 90° arc sweep
+        disk_thickness_mm=3.0,  # Reasonable thickness
         # Fixed encoding parameters - DO NOT OPTIMIZE
-        num_positions=32,         # Good resolution for rudder position
-        num_tracks=5,             # Required for 32 positions (2^5 = 32)
-        
+        num_positions=32,  # Good resolution for rudder position
+        num_tracks=5,  # Required for 32 positions (2^5 = 32)
         # Fixed bumpers - DO NOT OPTIMIZE
         bump_extension_mm=5.0,
         bump_width_deg=2.0,
-        
         # Manufacturing constraints for 0.16mm line width
         min_feature_size_mm=0.16,
         min_gap_size_mm=0.2,
         min_wall_thickness_mm=0.32,
-        
         # Initial track layout values - THESE WILL BE OPTIMIZED
-        track_width_mm=2.0,       # Starting value, will be optimized
-        track_spacing_mm=1.0,     # Starting value, will be optimized
-        gap_width_deg=2.0         # Starting value, will be optimized
+        track_width_mm=2.0,  # Starting value, will be optimized
+        track_spacing_mm=1.0,  # Starting value, will be optimized
+        gap_width_deg=2.0,  # Starting value, will be optimized
     )
 
     # Define optimization goals
@@ -510,15 +573,15 @@ def main():
         if "high_res" in sys.argv:
             goals.min_tracks = 8
             goals.min_resolution = 1.5
-            print("🎯 High resolution optimization mode")
+            print(" High resolution optimization mode")
         elif "compact" in sys.argv:
             goals.max_noise_ratio = 0.15
             goals.target_strength = 0.7
-            print("🎯 Compact optimization mode")
+            print(" Compact optimization mode")
 
-    print(f"📐 Fixed Parameters:")
+    print(f" Fixed Parameters:")
     print(f"   Outer diameter: {fixed_params.outer_diameter_mm}mm")
-    print(f"   Inner diameter: {fixed_params.inner_diameter_mm}mm") 
+    print(f"   Inner diameter: {fixed_params.inner_diameter_mm}mm")
     print(f"   Arc angle: {fixed_params.arc_angle_deg}°")
     print(f"   Positions: {fixed_params.num_positions}")
     print(f"   Manufacturing: {fixed_params.min_feature_size_mm}mm line width")
@@ -544,10 +607,10 @@ def main():
             if success:
                 print(f"🎉 Optimized encoder generated: {output_file}")
         except Exception as e:
-            print(f"⚠️  Could not generate encoder: {e}")
+            print(f"  Could not generate encoder: {e}")
 
     else:
-        print("❌ No valid solution found. Try adjusting optimization goals.")
+        print(" No valid solution found. Try adjusting optimization goals.")
 
 
 if __name__ == "__main__":

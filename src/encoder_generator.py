@@ -7,7 +7,7 @@ rudder position sensing using Gray code absolute positioning.
 
 Usage:
     python encoder_generator.py [options]
-    
+
 Options:
     --config CONFIG_NAME    Use predefined configuration (default, high_res, compact)
     --output OUTPUT_FILE    Output .scad filename (default: gray_encoder_disk.scad)
@@ -15,7 +15,7 @@ Options:
     --info                  Show detailed design information
     --export-data           Export pattern data to JSON
     --no-bumpers           Generate disk without limit switch bumpers
-    
+
 Examples:
     python encoder_generator.py --config high_res --output high_res_encoder.scad
     python encoder_generator.py --validate --info
@@ -106,17 +106,17 @@ def load_configuration(config_name: str, params_file: str = None) -> EncoderPara
     if config_name == "custom":
         if not params_file:
             raise ValueError("--params file required when using --config=custom")
-        
+
         if not os.path.exists(params_file):
             raise FileNotFoundError(f"Parameters file not found: {params_file}")
-            
+
         try:
-            with open(params_file, 'r') as f:
+            with open(params_file, "r") as f:
                 params_dict = json.load(f)
             return EncoderParameters(**params_dict)
         except Exception as e:
             raise ValueError(f"Failed to load parameters from {params_file}: {e}")
-    
+
     config_map = {
         "default": create_default_parameters,
         "high_res": create_high_resolution_parameters,
@@ -164,27 +164,27 @@ def validate_design(params: EncoderParameters, verbose: bool = False) -> bool:
     overall_valid = param_valid and gray_valid and print_valid
 
     if param_errors:
-        print("❌ Parameter Errors:")
+        print(" Parameter Errors:")
         for error in param_errors:
             print(f"   • {error}")
 
     if param_warnings:
-        print("⚠️  Parameter Warnings:")
+        print("  Parameter Warnings:")
         for warning in param_warnings:
             print(f"   • {warning}")
 
     if not gray_valid:
-        print("❌ Gray Code Errors:")
+        print(" Gray Code Errors:")
         for error in gray_report["errors"]:
             print(f"   • {error}")
 
     if gray_report["warnings"]:
-        print("⚠️  Gray Code Warnings:")
+        print("  Gray Code Warnings:")
         for warning in gray_report["warnings"]:
             print(f"   • {warning}")
 
     if print_issues:
-        print("❌ Printability Issues:")
+        print(" Printability Issues:")
         for issue in print_issues:
             print(f"   • {issue}")
 
@@ -194,16 +194,16 @@ def validate_design(params: EncoderParameters, verbose: bool = False) -> bool:
             print(f"   • {rec}")
 
     if overall_valid:
-        print("✅ Design validation passed!")
+        print(" Design validation passed!")
     else:
-        print("❌ Design validation failed!")
+        print(" Design validation failed!")
 
     return overall_valid
 
 
 def show_design_info(params: EncoderParameters):
     """Show detailed design information."""
-    print("\n📊 Encoder Design Information")
+    print("\n Encoder Design Information")
     print("=" * 50)
 
     print(f"Physical Dimensions:")
@@ -239,14 +239,15 @@ def show_design_info(params: EncoderParameters):
     print(f"\nCalculated Properties:")
     print(f"  • Disk area: {assembly_info['geometry']['total_area_mm2']:.1f}mm²")
     print(
-        f"  • Outer arc length: {assembly_info['geometry']['arc_length_outer_mm']:.1f}mm"
+        f"  • Outer arc length: "
+        f"{assembly_info['geometry']['arc_length_outer_mm']:.1f}mm"
     )
 
     feature_analysis = assembly_info["manufacturing"]
     if feature_analysis["printability_ok"]:
-        print(f"  • Minimum feature: {feature_analysis['min_feature_size_mm']:.2f}mm ✅")
+        print(f"  • Minimum feature: {feature_analysis['min_feature_size_mm']:.2f}mm ")
     else:
-        print(f"  • Minimum feature: {feature_analysis['min_feature_size_mm']:.2f}mm ❌")
+        print(f"  • Minimum feature: {feature_analysis['min_feature_size_mm']:.2f}mm ")
 
 
 def generate_encoder(
@@ -269,7 +270,7 @@ def generate_encoder(
     """
     try:
         if verbose:
-            print(f"🔧 Generating encoder disk...")
+            print(f" Generating encoder disk...")
 
         # Create assembler and generate disk
         assembler = EncoderAssembler(params)
@@ -278,7 +279,7 @@ def generate_encoder(
         # Validate assembly
         assembly_valid, assembly_errors = assembler.validate_assembly()
         if not assembly_valid:
-            print("❌ Assembly validation failed:")
+            print(" Assembly validation failed:")
             for error in assembly_errors:
                 print(f"   • {error}")
             return False
@@ -317,7 +318,7 @@ def generate_encoder(
 
         scad_render_to_file(encoder_disk, output_file, file_header=header_comment)
 
-        print(f"✅ Encoder disk generated successfully: {output_file}")
+        print(f" Encoder disk generated successfully: {output_file}")
 
         if verbose:
             file_size = os.path.getsize(output_file)
@@ -326,7 +327,7 @@ def generate_encoder(
         return True
 
     except Exception as e:
-        print(f"❌ Error generating encoder: {e}")
+        print(f" Error generating encoder: {e}")
         if verbose:
             import traceback
 
@@ -377,11 +378,11 @@ def export_pattern_data(params: EncoderParameters, output_file: str) -> bool:
         with open(output_file, "w") as f:
             json.dump(export_data, f, indent=2)
 
-        print(f"✅ Pattern data exported: {output_file}")
+        print(f" Pattern data exported: {output_file}")
         return True
 
     except Exception as e:
-        print(f"❌ Error exporting pattern data: {e}")
+        print(f" Error exporting pattern data: {e}")
         return False
 
 
@@ -404,7 +405,7 @@ def main():
         # Validate design
         if not validate_design(params, args.verbose):
             if not args.validate:  # If just validating, continue anyway
-                print("⚠️  Validation failed, but continuing generation...")
+                print("  Validation failed, but continuing generation...")
             else:
                 return 1
 
@@ -424,7 +425,7 @@ def main():
         return 0
 
     except KeyboardInterrupt:
-        print("\n⏹️  Operation cancelled by user")
+        print("\n  Operation cancelled by user")
         return 1
     except Exception as e:
         print(f"\n💥 Unexpected error: {e}")

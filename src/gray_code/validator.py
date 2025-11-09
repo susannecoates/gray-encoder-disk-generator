@@ -93,12 +93,14 @@ class GrayCodeValidator:
         max_run_threshold = max(8, len(pattern) // 4)
         if analysis.get("max_zero_run", 0) > max_run_threshold:
             self.warnings.append(
-                f"Track {track_idx}: Very long zero run ({analysis['max_zero_run']} positions)"
+                f"Track {track_idx}: Very long zero run "
+                f"({analysis['max_zero_run']} positions)"
             )
 
         if analysis.get("max_one_run", 0) > max_run_threshold:
             self.warnings.append(
-                f"Track {track_idx}: Very long one run ({analysis['max_one_run']} positions)"
+                f"Track {track_idx}: Very long one run "
+                f"({analysis['max_one_run']} positions)"
             )
 
         # Check balance
@@ -113,12 +115,14 @@ class GrayCodeValidator:
         # Track-specific recommendations
         if track_idx == 0:  # Outermost track (LSB)
             self.info.append(
-                f"Track {track_idx} (LSB, outermost): {analysis['transitions']} transitions, "
+                f"Track {track_idx} (LSB, outermost): "
+                f"{analysis['transitions']} transitions, "
                 f"fastest changing track"
             )
         elif track_idx == len(pattern) - 1:  # Innermost track (MSB)
             self.info.append(
-                f"Track {track_idx} (MSB, innermost): {analysis['transitions']} transitions"
+                f"Track {track_idx} (MSB, innermost): "
+                f"{analysis['transitions']} transitions"
             )
 
     def _validate_encoding_efficiency(self, num_positions: int, num_tracks: int):

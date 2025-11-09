@@ -1,278 +1,196 @@
-# Rudder Encoder Disk Generator
+# Gray Code Optical Encoder Disk Generator
 
-A complete system for generating 3D printable optical encoder disks for sailboat rudder position sensing using Gray code absolute positioning.
+Generates 3D-printable optical encoder disks using Gray code for absolute position sensing. Outputs OpenSCAD files for FDM fabrication.
 
-## 🖥️ GUI Interface (Recommended)
+## Requirements
 
-Launch the user-friendly graphical interface:
+- Python 3.8+
+- Poetry (dependency management)
+- OpenSCAD (for STL export, optional)
+
+## Installation
 
 ```bash
-# Using Poetry
-poetry run python src/gui_encoder_controller.py
-
-# OR using make
-make gui
-
-# OR using the launcher
-python launch_gui.py
+curl -sSL https://install.python-poetry.org | python3 -
+poetry install
 ```
 
-The GUI provides:
-- **Interactive parameter control** with real-time validation
-- **Physical dimension inputs** (inner radius, encoder width, arc angle)
-- **Genetic algorithm optimization** with progress tracking
-- **One-click generation** of SCAD files
-- **Built-in validation** and parameter checking
+## Basic Usage
 
-## Quick Start (Command Line)
-
-1. **Install Poetry** (if not already installed):
-   ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
-   ```
-
-2. **Install Dependencies**:
-   ```bash
-   poetry install
-   ```
-
-3. **Generate Default Encoder**:
-   ```bash
-   poetry run python src/encoder_generator.py
-   # OR using make
-   make generate
-   ```
-
-4. **Output**: `output/default_encoder.scad` - Open in OpenSCAD to render and export STL
-
-## Features
-
-- **Absolute Position Encoding**: No homing required - position known immediately on power-up
-- **Gray Code Pattern**: Single-bit transitions between positions eliminate read errors
-- **3D Printable**: Optimized for FDM printing with standard nozzles
-- **Marine Ready**: Designed for harsh marine environments
-- **Configurable**: Multiple predefined configurations plus custom parameters
-- **Validated**: Comprehensive parameter and design validation
-
-## Configurations
-
-### Default Configuration
-- 32 positions (5-bit Gray code)
-- 100mm outer diameter, 30mm inner diameter
-- 30° arc angle
-- Optimized for reliable 3D printing
-
-### High Resolution
-- 64 positions (6-bit Gray code)  
-- 120mm outer diameter
-- Higher precision for demanding applications
-
-### Compact
-- 16 positions (4-bit Gray code)
-- 80mm outer diameter
-- Space-constrained installations
-
-## Usage Examples
+Generate encoder with default parameters (32 positions, 5-bit Gray code):
 
 ```bash
-# Generate high resolution encoder
-poetry run python src/encoder_generator.py --config high_res --output output/high_res_encoder.scad
-# OR using make
-make run-high-res
+poetry run python src/encoder_generator.py
+```
 
-# Validate design without generating
+Output: `output/default_encoder.scad`
+
+## Command Line Options
+
+```bash
+# Use predefined configuration
+poetry run python src/encoder_generator.py --config [default|high_res|compact]
+
+# Specify output file
+poetry run python src/encoder_generator.py --output path/to/file.scad
+
+# Validate parameters without generating
 poetry run python src/encoder_generator.py --validate --info
-# OR using make
-make validate
+
+# Export pattern data
+poetry run python src/encoder_generator.py --export-data output/patterns.json
 
 # Generate without limit switch bumpers
-poetry run python src/encoder_generator.py --no-bumpers --output output/no_bumpers_encoder.scad
+poetry run python src/encoder_generator.py --no-bumpers
 
-# Export pattern data for analysis
-poetry run python src/encoder_generator.py --export-data output/patterns.json
-# OR using make
-make export-data
-
-# Verbose output
-poetry run python src/encoder_generator.py --verbose --info
-# OR using make
-make run-validate
+# Custom parameters from JSON
+poetry run python src/encoder_generator.py --config custom --params config.json
 ```
 
-## Development Commands
+## Predefined Configurations
 
-Using Poetry and Make for common tasks:
+| Configuration | Positions | Bits | Outer Diameter | Inner Diameter | Arc Angle |
+|---------------|-----------|------|----------------|----------------|-----------|
+| default       | 32        | 5    | 116.2mm       | 35.6mm         | 57.1°     |
+| high_res      | 64        | 6    | 120mm         | 30mm           | 360°      |
+| compact       | 16        | 4    | 80mm          | 20mm           | 90°       |
+
+Default parameters derived from genetic algorithm optimisation (fitness: 1.115).
+
+## Custom Configuration
+
+Create JSON file with parameters:
+
+```json
+{
+  "outer_diameter_mm": 100.0,
+  "inner_diameter_mm": 30.0,
+  "disk_thickness_mm": 3.0,
+  "arc_angle_deg": 90.0,
+  "num_positions": 32,
+  "num_tracks": 5,
+  "track_width_mm": 3.5,
+  "track_spacing_mm": 1.5,
+  "gap_width_deg": 2.5,
+  "bump_extension_mm": 5.0,
+  "bump_width_deg": 3.0
+}
+```
+
+## Genetic Algorithm Optimisation
+
+Optimise parameters for specific constraints:
 
 ```bash
-# Development setup
-make dev-setup              # Install dependencies and dev tools
-
-# Code quality
-make lint                   # Check code style
-make format                 # Format code
-make type-check            # Run type checking
-make test                  # Run tests
-make test-coverage         # Run tests with coverage
-make check-all             # Run all quality checks
-
-# Generation commands
-make generate              # Generate default encoder
-make generate-all          # Generate all configurations
-make validate              # Validate default design
-make export-data           # Export pattern data
-make clean                 # Clean generated files
-
-# Quick shortcuts
-make run-default           # Quick default generation
-make run-validate          # Quick validation with info
-make run-high-res          # Generate high resolution
-make run-compact           # Generate compact version
+poetry run python src/genetic_optimizer.py
 ```
 
-## Design Validation
+Edit `genetic_optimizer.py` to specify fixed parameters and optimisation goals. Algorithm runs 50 generations by default, outputs results to `output/optimized_parameters.json`.
 
-The generator includes comprehensive validation:
+## Validation System
 
-- **Parameter Validation**: Geometric constraints, encoding efficiency
-- **Gray Code Validation**: Proper single-bit transitions, pattern analysis  
-- **Printability Analysis**: Feature sizes, manufacturing constraints
-- **Assembly Validation**: Component interference, structural integrity
+Three-layer validation:
+1. Geometric constraints (radii, angles, track fitting)
+2. Gray code correctness (single-bit transitions, pattern validity)
+3. Printability analysis (minimum feature sizes, gap widths, manufacturing constraints)
+
+## Manufacturing Constraints
+
+- Minimum feature size: 0.4mm (standard nozzle) or 0.16mm (precision nozzle)
+- Minimum gap width: 0.5mm
+- Minimum wall thickness: 1.2mm (3 perimeters at 0.4mm line width)
+- Track spacing: ≥ 0.5mm for reliable separation
+
+## 3D Printing Parameters
+
+Recommended settings for FDM:
+- Layer height: 0.2mm
+- Perimeters: 3
+- Infill: 20%
+- Print orientation: cutouts facing build plate
+- Materials: PETG, ASA (UV resistant), PLA (indoor use)
+
+## Development
+
+```bash
+# Run tests
+poetry run pytest
+
+# Run with coverage
+poetry run pytest --cov=src --cov-report=html
+
+# Code formatting
+poetry run black src/ tests/
+
+# Type checking
+poetry run mypy src/
+
+# Linting
+poetry run flake8 src/ tests/
+```
+
+Or use Makefile commands:
+
+```bash
+make test           # Run test suite
+make test-coverage  # Generate coverage report
+make format         # Format code
+make lint           # Check code style
+make type-check     # Run type checker
+make check-all      # Run all quality checks
+```
 
 ## File Structure
 
 ```
-rudder-encoder/
-├── ARCHITECTURE.md          # Detailed design documentation
-├── README.md                # This file
-├── pyproject.toml           # Poetry configuration
-├── Makefile                 # Development commands
-├── .gitignore               # Git ignore patterns
-├── src/                     # Source code
-│   ├── encoder_generator.py # Main generator script
-│   ├── utils/               # Parameter management
-│   ├── gray_code/           # Gray code mathematics
-│   └── geometry/            # 3D geometry generation
-├── tests/                   # Test suite
-├── output/                  # Generated files (.scad, .json)
-└── docs/                    # Additional documentation
+gray-encoder-disk-generator/
+├── src/
+│   ├── encoder_generator.py      # Main CLI
+│   ├── genetic_optimizer.py      # GA optimisation
+│   ├── apply_optimization.py     # Apply GA results
+│   ├── gui_encoder_controller.py # PyQt6 GUI (optional)
+│   ├── gray_code/
+│   │   ├── converter.py          # Gray code mathematics
+│   │   └── validator.py          # Pattern validation
+│   ├── geometry/
+│   │   ├── arc_utils.py          # Geometric primitives
+│   │   ├── track_generator.py    # Track pattern generation
+│   │   └── assembly.py           # Disk assembly
+│   └── utils/
+│       ├── parameters.py         # Parameter definitions
+│       └── printer_constraints.py # Printability analysis
+├── tests/                         # Test suite
+├── output/                        # Generated SCAD/JSON files
+└── docs/
+    └── ARCHITECTURE.md            # Technical documentation
 ```
 
-## Gray Code Advantages
+## Architecture
 
-1. **Error Tolerance**: Only one bit changes between adjacent positions
-2. **Noise Immunity**: Single-bit errors don't propagate  
-3. **No Invalid States**: All transitions are valid
-4. **Absolute Positioning**: No reference position required
+System consists of five main components:
 
-## 3D Printing Guidelines
+1. **Gray code module** (`gray_code/`): Mathematical operations for Gray code generation, bit extraction, sequence validation, pattern analysis.
 
-### Recommended Settings
-- **Layer Height**: 0.2mm
-- **Perimeters**: 3 (for strength)
-- **Infill**: 20%
-- **Speed**: 50mm/s perimeters, 100mm/s infill
-- **Material**: PETG or ASA (UV resistant)
+2. **Geometry module** (`geometry/`): 3D solid generation using SolidPython, arc sector primitives, Boolean operations for disk assembly.
 
-### Print Orientation
-- Print with cutouts facing down for best edge quality
-- No supports required with proper design
-- Use brim for bed adhesion on large disks
+3. **Parameter system** (`utils/`): Parameter validation, printability analysis, constraint checking.
 
-## Testing
+4. **Genetic optimiser** (`genetic_optimizer.py`): Multi-objective fitness function, tournament selection, constrained optimisation.
 
-Run the test suite using Poetry:
+5. **Generation pipeline** (`encoder_generator.py`): Parameter loading, validation orchestration, geometry generation, OpenSCAD export.
 
-```bash
-# Run all tests
-make test
-# OR
-poetry run pytest
-
-# Run with coverage
-make test-coverage
-# OR  
-poetry run pytest --cov=src --cov-report=html
-
-# Run specific test file
-poetry run pytest tests/test_gray_code.py -v
-
-# Run with verbose output
-poetry run pytest tests/ -v
-```
-
-Tests cover:
-- Gray code mathematics
-- Geometry calculations  
-- Parameter validation
-- Assembly verification
-
-## Code Quality
-
-The project includes comprehensive code quality tools:
-
-```bash
-# Check code style
-make lint
-
-# Format code automatically
-make format
-
-# Type checking
-make type-check
-
-# Run all quality checks
-make check-all
-```
+See `docs/ARCHITECTURE.md` for detailed technical documentation.
 
 ## Troubleshooting
 
-### Common Issues
+**Validation errors**: Run with `--validate --info` to see detailed constraint violations.
 
-**"Gap size too small" error**:
-- Increase `gap_width_deg` parameter
-- Reduce number of positions
-- Use larger outer diameter
+**Gap size too small**: Increase `gap_width_deg`, reduce `num_positions`, or increase `outer_diameter_mm`.
 
-**"Track count mismatch" error**:
-- Ensure `num_tracks` matches required bits for `num_positions`
-- Use power-of-2 position counts for efficiency
+**Track count mismatch**: Ensure `num_tracks = ceil(log2(num_positions))`.
 
-**Printability warnings**:
-- Check minimum feature sizes
-- Verify track spacing
-- Consider material capabilities
+**Printability warnings**: Check feature sizes against nozzle diameter. Use `PrintabilityAnalyzer` output for specific recommendations.
 
-### Parameter Tuning
+## Licence
 
-The system is designed to guide you toward printable designs:
-
-1. Start with a predefined configuration
-2. Use `--validate --info` to check constraints
-3. Adjust parameters based on validation feedback
-4. Test print a small section first
-
-## Integration
-
-### Optical Sensor Setup
-- Position sensors radially aligned with tracks
-- Use IR LED/photodiode pairs for contrast
-- Ensure sensor spacing matches track pitch
-- Calibrate sensor thresholds for reliable readings
-
-### Mechanical Mounting
-- Design sensor housing to maintain precise alignment
-- Allow for thermal expansion
-- Protect sensors from marine environment
-- Consider shock/vibration isolation
-
-## Support
-
-For issues or questions:
-1. Check validation output for guidance
-2. Review ARCHITECTURE.md for detailed technical information
-3. Run tests to verify installation
-4. Examine generated .scad file in OpenSCAD
-
-## License
-
-This project is designed for educational and practical use in marine applications. Please follow safe engineering practices when implementing position-critical systems.
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
