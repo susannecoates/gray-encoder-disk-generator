@@ -113,43 +113,45 @@ class ParameterGenome:
 
     def mutate(
         self,
-        mutation_rate: float = 0.1,
+        mutation_rate: float = 0.3,
         fixed_params: Optional[EncoderParameters] = None,
     ):
         """
         Apply random mutations to parameters, only changing optimizable
         track layout parameters.
         """
-        if random.random() < mutation_rate:
-            # Only mutate track layout parameters - keep physical/encoding params fixed
-            optimizable_params = ["track_width_mm", "track_spacing_mm", "gap_width_deg"]
+        # Only mutate track layout parameters - keep physical/encoding params fixed
+        optimizable_params = ["track_width_mm", "track_spacing_mm", "gap_width_deg"]
 
-            param_name = random.choice(optimizable_params)
-            current_value = getattr(self.params, param_name)
+        mutated = False
+        # Each parameter has independent chance to mutate
+        for param_name in optimizable_params:
+            if random.random() < mutation_rate:
+                mutated = True
+                current_value = getattr(self.params, param_name)
 
-            # Apply small random change (±20%)
-            change_factor = random.uniform(0.8, 1.2)
-            new_value = current_value * change_factor
+                # Apply larger random change (±50%) for better exploration
+                change_factor = random.uniform(0.5, 1.5)
+                new_value = current_value * change_factor
 
-            # Apply bounds based on 0.16mm manufacturing capability
-            if param_name == "track_width_mm":
-                new_value = max(
-                    0.32, min(8.0, new_value)
-                )  # Min 2 line widths, reasonable max
-            elif param_name == "track_spacing_mm":
-                new_value = max(
-                    0.2, min(3.0, new_value)
-                )  # Min gap size, reasonable max
-            elif param_name == "gap_width_deg":
-                new_value = max(0.3, min(6.0, new_value))  # Small gaps to large gaps
+                # Apply bounds based on 0.16mm manufacturing capability
+                if param_name == "track_width_mm":
+                    new_value = max(
+                        0.32, min(8.0, new_value)
+                    )  # Min 2 line widths, reasonable max
+                elif param_name == "track_spacing_mm":
+                    new_value = max(
+                        0.2, min(3.0, new_value)
+                    )  # Min gap size, reasonable max
+                elif param_name == "gap_width_deg":
+                    new_value = max(0.3, min(6.0, new_value))  # Small gaps to large gaps
 
-            setattr(self.params, param_name, new_value)
+                setattr(self.params, param_name, new_value)
 
-        self.validated = False  # Need to re-validate after mutation
-
-        # Reset fitness after mutation
-        self.fitness = 0.0
-        self.validated = False
+        # Reset fitness after mutation only if something changed
+        if mutated:
+            self.fitness = 0.0
+            self.validated = False
 
     def crossover(
         self, other: "ParameterGenome"
@@ -336,6 +338,11 @@ class EncoderOptimizer:
         if param_valid and print_valid and gray_valid:
             total_fitness *= 1.2
 
+        # Add small random noise to break fitness ties and maintain diversity
+        # This helps exploration by preventing premature convergence
+        noise = random.uniform(-0.001, 0.001)
+        total_fitness += noise
+
         genome.fitness = total_fitness
         genome.fitness_components = fitness_components
         genome.validated = True
@@ -353,13 +360,56 @@ class EncoderOptimizer:
 
         return selected
 
+    def _apply_fitness_sharing(self, sigma_share: float = 0.5):
+        """
+        Apply fitness sharing to maintain diversity in the population.
+        Genomes that are too similar to others get penalized.
+        """
+        for i, genome_i in enumerate(self.population):
+            niche_count = 0.0
+
+            for j, genome_j in enumerate(self.population):
+                if i == j:
+                    continue
+
+                # Calculate parameter distance (normalized)
+                dist = self._parameter_distance(genome_i.params, genome_j.params)
+
+                # Sharing function
+                if dist < sigma_share:
+                    niche_count += 1.0 - (dist / sigma_share)
+
+            # Adjust fitness based on niche count
+            if niche_count > 0:
+                genome_i.fitness = genome_i.fitness / (1.0 + niche_count * 0.2)
+
+    def _parameter_distance(
+        self, params1: EncoderParameters, params2: EncoderParameters
+    ) -> float:
+        """
+        Calculate normalized distance between two parameter sets.
+        Only considers the optimizable parameters.
+        """
+        # Normalize each parameter by its range
+        track_w_dist = abs(params1.track_width_mm - params2.track_width_mm) / 8.0
+        spacing_dist = (
+            abs(params1.track_spacing_mm - params2.track_spacing_mm) / 3.0
+        )
+        gap_dist = abs(params1.gap_width_deg - params2.gap_width_deg) / 6.0
+
+        # Euclidean distance
+        return math.sqrt(track_w_dist**2 + spacing_dist**2 + gap_dist**2)
+
     def evolve_generation(self):
         """Evolve one generation."""
         # Evaluate fitness for all genomes
         for genome in self.population:
             self.evaluate_fitness(genome)
 
-        # Sort by fitness
+        # Apply fitness sharing to maintain diversity
+        self._apply_fitness_sharing()
+
+        # Sort by fitness (now adjusted for diversity)
         self.population.sort(key=lambda g: g.fitness, reverse=True)
 
         # Track best genome
@@ -378,25 +428,46 @@ class EncoderOptimizer:
         avg_fitness = statistics.mean(fitnesses)
         self.fitness_history.append(avg_fitness)
 
+        # Show parameter diversity in top genomes
+        best = self.population[0].params
         print(
             f"Generation {self.generation}: "
             f"Best={self.population[0].fitness:.3f}, "
             f"Avg={avg_fitness:.3f}, "
             f"Valid={sum(1 for g in self.population if g.fitness > 0)}"
         )
+        print(
+            f"  Best params: "
+            f"track_w={best.track_width_mm:.2f}mm, "
+            f"spacing={best.track_spacing_mm:.2f}mm, "
+            f"gap={best.gap_width_deg:.2f}°"
+        )
+
+        # Show diversity in population
+        if len(self.population) >= 5:
+            track_widths = [g.params.track_width_mm for g in self.population[:5]]
+            spacings = [g.params.track_spacing_mm for g in self.population[:5]]
+            gaps = [g.params.gap_width_deg for g in self.population[:5]]
+            print(
+                f"  Top 5 diversity: "
+                f"track_w=[{min(track_widths):.2f}-{max(track_widths):.2f}], "
+                f"spacing=[{min(spacings):.2f}-{max(spacings):.2f}], "
+                f"gap=[{min(gaps):.2f}-{max(gaps):.2f}]"
+            )
 
         # Create next generation
-        elite_size = max(2, len(self.population) // 10)  # Keep top 10%
+        elite_size = max(1, len(self.population) // 20)  # Keep only top 5% (was 10%)
         new_population = self.population[:elite_size]  # Elitism
 
         # Fill rest with offspring
-        parents = self.select_parents()
+        parents = self.select_parents(tournament_size=3)  # Reduced from 5 to 3
         while len(new_population) < len(self.population):
             parent1, parent2 = random.sample(parents, 2)
             child1, child2 = parent1.crossover(parent2)
 
-            child1.mutate(fixed_params=self.fixed_params)
-            child2.mutate(fixed_params=self.fixed_params)
+            # Higher mutation rate for better exploration
+            child1.mutate(mutation_rate=0.4, fixed_params=self.fixed_params)
+            child2.mutate(mutation_rate=0.4, fixed_params=self.fixed_params)
 
             new_population.extend([child1, child2])
 
