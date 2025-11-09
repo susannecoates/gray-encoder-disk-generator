@@ -191,6 +191,5 @@ See `docs/ARCHITECTURE.md` for detailed technical documentation.
 
 **Printability warnings**: Check feature sizes against nozzle diameter. Use `PrintabilityAnalyzer` output for specific recommendations.
 
-## Licence
-
-Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+## License
+MIT License. See LICENSE file for details.
