@@ -1,0 +1,171 @@
+<h1>Building A Custom Optical Encoder For Rudder Position Sensing – Part 2</h1>
+
+<h2>From Theory to Implementation: The Parametric Design System</h2>
+
+<p>In Part 1, I introduced the problem of rudder position sensing for SCANS and explained why Gray code provides reliable absolute position encoding in the presence of mechanical imperfection and electrical noise. This second part examines the implementation: the translation of Gray code theory into manufacturable geometry, the constraints imposed by additive manufacturing, and the application of evolutionary optimization to the parameter space.</p>
+
+<p>The central challenge lies not in the mathematical abstraction of Gray code, but in the practical synthesis of a physical artifact that satisfies multiple competing constraints: manufacturability via fused deposition modeling, reliable optical readability, mechanical robustness, and geometric compatibility with the mounting hardware. The solution required developing a parametric design system that could navigate these constraints systematically.</p>
+
+<h3>Physical Constraints and Design Requirements</h3>
+
+<p>The theoretical elegance of Gray code encounters significant practical constraints during physical realization. Fused deposition modeling (FDM) exhibits fundamental limits on minimum feature size determined by nozzle diameter. Optical sensors require minimum feature dimensions for reliable discrimination between transmissive and opaque regions. The encoder disk must possess sufficient structural integrity to resist warping and mechanical stress. Additionally, the design must accommodate specific mounting geometry—in this case, a rudder post of fixed diameter with limited available radial space.</p>
+
+<p>The 256-position, full-rotation encoder described in Part 1 represents one point in a larger design space. A more robust approach required a parametric generator capable of producing valid encoder geometries across a range of specifications: varying position counts, alternative arc angles (for partial-rotation applications), different radial dimensions, and adjustable resolution requirements. Rather than implementing a single fixed design, I developed a system that encodes the mathematical relationships between parameters, validates configurations against manufacturing constraints, and performs automated optimization using genetic algorithms.</p>
+
+<h3>Mathematical Foundation</h3>
+
+<p>The system's foundation rests on the Gray code conversion algorithm. For any position $n$ in the range $[0, N-1]$ where $N$ represents the total position count, the Gray code value is computed through the exclusive-OR operation:</p>
+
+<p>$$\text{Gray}(n) = n \oplus (n \gg 1)$$</p>
+
+<p>This bitwise XOR operation between the position value and its right-shifted counterpart produces the single-bit-change property characteristic of Gray code. To generate physical track patterns, individual bits must be extracted from this encoded value.</p>
+
+<p>For an $m$-bit Gray code, where $m = \lceil \log_2(N) \rceil$ represents the minimum number of tracks required, each position encodes as $m$ binary digits. Bit extraction follows:</p>
+
+<p>$$\text{bit}_i = \left(\lfloor\frac{\text{Gray}(n)}{2^i}\rfloor\right) \bmod 2$$</p>
+
+<p>where $i \in [0, m-1]$. This operation corresponds to <code>(gray_value &gt;&gt; i) &amp; 1</code> in implementation.</p>
+
+<p>These extracted bits map to concentric physical tracks on the encoder disk. The track assignment follows a specific convention: Track 0 (outermost radius) carries the least significant bit (LSB), while Track $m-1$ (innermost radius) carries the most significant bit (MSB). This radial ordering derives from optical considerations rather than arbitrary choice.</p>
+
+<p>The LSB exhibits the highest transition frequency—approximately every other position—as the encoded sequence increments. Positioning this bit on the outermost track maximizes the arc length of each segment, improving optical sensor reliability. The MSB transitions least frequently (once per half-cycle of the full sequence), making the shorter arc lengths of inner tracks less problematic for detection. This arrangement optimizes the signal-to-noise ratio across all tracks given the geometric constraints of concentric circular tracks.</p>
+
+<h3>Track Layout and Geometric Constraints</h3>
+
+<p>Each track occupies an annular sector—a ring segment defined by inner radius, outer radius, and angular extent. For a disk with outer radius $R_{\text{outer}}$ and inner radius $R_{\text{inner}}$ (determined by the mounting hole diameter), tracks are positioned sequentially from the outer edge inward with spacing between adjacent tracks.</p>
+
+<p>Given $m$ tracks with uniform track width $w$ and inter-track spacing $s$, the track pitch $p$ (center-to-center distance) becomes:</p>
+
+<p>$$p = w + s$$</p>
+
+<p>Track $i$, indexed from 0 at the outermost position, occupies radial bounds:</p>
+
+<p>$$R_{\text{outer},i} = R_{\text{outer}} - i \cdot p$$</p>
+
+<p>$$R_{\text{inner},i} = R_{\text{outer},i} - w$$</p>
+
+<p>A fundamental geometric constraint requires that the innermost track not extend below the inner mounting radius:</p>
+
+<p>$$R_{\text{inner},m-1} \geq R_{\text{inner}}$$</p>
+
+<p>This inequality establishes an upper bound on the number of tracks that can be accommodated within the available radial space. The usable radial dimension equals $R_{\text{outer}} - R_{\text{inner}}$, while the radial space required for $m$ tracks totals $m \cdot w + (m-1) \cdot s$. Violation of this constraint renders the design geometrically invalid and triggers validation errors in the parameter checking system.</p>
+
+<h3>From Bit Patterns to Physical Cutouts</h3>
+
+<p>The conversion from abstract bit patterns to physical geometry requires determining the spatial distribution of transmissive regions on each track. In a transmissive optical encoder, a '1' bit indicates light transmission through a cutout or slot, while a '0' bit indicates light blockage by solid material.</p>
+
+<p>For each track, the bit pattern across all $N$ positions forms a binary sequence: $[b_0, b_1, b_2, \ldots, b_{N-1}]$ where $b_i \in \{0, 1\}$. Rather than generating individual cutouts for each '1' bit, the algorithm identifies maximal contiguous subsequences of '1' values and creates a single continuous aperture spanning the corresponding angular range. This approach reduces geometric complexity and improves manufacturing reliability.</p>
+
+<p>For positions distributed over arc angle $\theta_{\text{arc}}$, each position corresponds to angular increment:</p>
+
+<p>$$\Delta\theta = \frac{\theta_{\text{arc}}}{N}$$</p>
+
+<p>A contiguous run of $k$ consecutive '1' bits beginning at position $p$ generates a cutout spanning the angular interval $[p \cdot \Delta\theta, (p + k) \cdot \Delta\theta]$. To ensure complete material removal through the disk thickness, the implementation adds a small angular overlap (typically 0.1°) at each boundary and extrudes the cutout to height slightly exceeding the nominal disk thickness.</p>
+
+<p>Geometric primitives are constructed using SolidPython, a Python library providing programmatic generation of OpenSCAD code. Each cutout represents an extruded polygon—specifically, the closed path defining an annular sector. Sector boundary points are computed by parametric generation of arc segments at both inner and outer radii.</p>
+
+<p>For an arc spanning angles $\theta_1$ to $\theta_2$ at radius $R$:</p>
+
+<p>$$x(\theta) = R \cos(\theta)$$</p>
+
+<p>$$y(\theta) = R \sin(\theta)$$</p>
+
+<p>with $\theta$ interpolated over 50 or more discrete steps to achieve smooth curve approximation. The outer arc points are concatenated with reversed inner arc points to form a closed polygon suitable for extrusion.</p>
+
+<h3>Manufacturing Constraints in Fused Deposition Modeling</h3>
+
+<p>The transition from theoretical geometry to physical artifact introduces constraints imposed by the additive manufacturing process. Fused deposition modeling operates by extruding thermoplastic through a heated nozzle, with typical diameters of 0.4mm for standard applications or 0.16mm for precision work. This nozzle diameter establishes a lower bound on achievable feature dimensions.</p>
+
+<p>Reliable feature formation requires minimum widths of approximately two nozzle diameters—this provides two perimeter passes that can properly fuse. For a 0.4mm nozzle, features below 0.8mm become unreliable. Inter-feature gaps present similar constraints: insufficient gap width permits unintended bridging where extruded material spans the gap, occluding what should remain transmissive.</p>
+
+<p>The critical parameters affecting manufacturability are gap width (expressed in angular measure) and inter-track spacing. Gap width $\theta_{\text{gap}}$ determines each cutout's angular span. At radius $R$, this angular measure translates to linear dimension:</p>
+
+<p>$$d_{\text{gap}} = \frac{\theta_{\text{gap}} \cdot \pi \cdot R}{180}$$</p>
+
+<p>This gap must exceed minimum thresholds to reliably separate adjacent solid regions. The system incorporates a printability analyzer that evaluates these constraints across all tracks, generating warnings when features approach or violate minimum dimensional thresholds.</p>
+
+<p>A fundamental tension exists between these constraints and design objectives: larger gaps and spacing enable more reliable manufacturing but consume radial space, reducing the number of tracks that fit within available dimensions and thereby limiting resolution. Conversely, aggressive dimensional reduction permits higher track counts and resolution but risks manufacturing failures. This multi-objective optimization problem, involving competing constraints and nonlinear relationships between parameters, motivates the application of evolutionary search algorithms.</p>
+
+<h3>Evolutionary Optimization of the Parameter Space</h3>
+
+<p>Rather than manual parameter tuning through iterative trial and error, I implemented a genetic algorithm to perform systematic search of the design space for near-optimal configurations. The algorithm represents each candidate encoder design as a genome—a vector of parameter values completely specifying the disk geometry and encoding characteristics.</p>
+
+<p>The evolutionary process initializes with a population of randomly generated genomes, typically 30 to 50 individuals representing diverse points in the parameter space. Each genome undergoes evaluation via a multi-objective fitness function scoring performance across several criteria:</p>
+
+<p>Printability (weighted at 40% of total fitness) assesses manufacturability by evaluating minimum feature sizes, gap widths, track spacing, and wall thicknesses against FDM constraints. Designs violating printability requirements receive substantial fitness penalties, effectively steering the population toward manufacturable solutions.</p>
+
+<p>Resolution (20% weight) quantifies the encoder's ability to distinguish discrete positions. Higher position counts generally improve angular resolution, though with diminishing returns beyond certain thresholds and subject to physical size constraints.</p>
+
+<p>Encoding efficiency (20% weight) measures Gray code utilization relative to track count. For $m$ tracks supporting up to $2^m$ distinct codes, using exactly a power-of-two position count (e.g., 32 positions with 5 tracks) achieves 100% efficiency. Configurations using fewer than $2^m$ positions exhibit lower efficiency due to unused code space.</p>
+
+<p>Size optimization (10% weight) rewards designs approaching the target outer diameter. Significant deviation either direction indicates suboptimal space utilization or geometric incompatibility with mounting constraints.</p>
+
+<p>Manufacturability (10% weight) captures secondary considerations including preference for standard dimensional values, reasonable arc angles, and design simplicity affecting assembly and optical alignment.</p>
+
+<p>The fitness function computes a weighted sum of these normalized component scores, with a 20% multiplicative bonus applied to genomes satisfying all validation constraints. Invalid parameter combinations receive zero fitness, eliminating them from reproduction.</p>
+
+<p>Evolution proceeds through tournament selection, where small randomly-chosen subsets compete and the highest-fitness individual from each tournament becomes a parent for the next generation. Elitism preserves the top 10% of each generation unchanged, preventing loss of high-quality solutions. Remaining positions in the next generation are filled by offspring generated through crossover and mutation operations.</p>
+
+<p>Crossover combines parental genomes by randomly inheriting each optimizable parameter (track width, track spacing, gap width) from one parent or the other. Mutation subsequently introduces variation through bounded random perturbations, typically ±20% of current values, with parameter-specific range constraints preventing physically impossible values.</p>
+
+<p>A critical feature permits fixing certain parameters while optimizing others. For the rudder encoder application, mounting geometry dictates outer diameter, inner diameter, and arc angle as fixed constraints determined by mechanical requirements. The algorithm holds these constant while optimizing the track layout parameters governing optical performance and manufacturability. This constrained optimization focuses computational effort on the actual degrees of freedom in the design problem.</p>
+
+<p>The algorithm executes for a complete generation count—typically 50 generations—without implementing early termination criteria. This ensures thorough exploration of the parameter space rather than premature convergence to local optima. Empirical observation indicates that novel high-quality solutions often emerge in later generations as the population converges toward optimal regions of the search space.</p>
+
+<p>Application of this genetic algorithm to my rudder encoder specifications yielded a best-fitness solution of 1.115 after 50 generations. The optimized parameter set comprises 32 positions (5-bit Gray code), 116.2mm outer diameter, 35.6mm inner diameter, 57.1° arc angle, 3.3mm track width, 1.7mm track spacing, and 2.8° gap width. These values replaced the initial hand-tuned parameters as the system's default configuration.</p>
+
+<h3>Software Architecture</h3>
+
+<p>The encoder generation system (available under a Creative Commons Attribution-ShareAlike licence) implements a layered architecture that separates mathematical abstractions from geometric realisation and manufacturing constraints. At the foundation lies the Gray code subsystem, residing in the <code>gray_code</code> module. The <code>converter.py</code> file provides the core mathematical operations: <code>binary_to_gray()</code> and <code>gray_to_binary()</code> implement the fundamental XOR transformations, while <code>gray_code_bits()</code> extracts individual bit values for a given position. The <code>extract_track_pattern()</code> function generates complete binary sequences for individual tracks across all positions, returning lists that map directly to physical cutout patterns.</p>
+
+<p>Pattern validation occurs through the <code>GrayCodeValidator</code> class in <code>validator.py</code>. This validator's <code>validate_encoder_pattern()</code> method performs comprehensive checking: it generates the complete Gray code sequence using <code>generate_gray_sequence()</code>, verifies single-bit transitions through <code>validate_gray_sequence()</code>, and analyses each track's characteristics via <code>analyze_track_transitions()</code>. The latter function computes transition counts, run lengths, and pattern balance—metrics that indicate whether a track will be reliably manufacturable and optically readable.</p>
+
+<p>Geometric generation builds upon these mathematical foundations through the <code>geometry</code> module. The <code>arc_utils.py</code> file implements primitive construction using the SolidPython library, which provides Python bindings for OpenSCAD's constructive solid geometry operations. The <code>create_arc_points()</code> function generates parametrically interpolated coordinates along circular arcs, whilst <code>create_sector_points()</code> combines inner and outer arc segments to form closed annular sector polygons. These point sets feed into <code>create_arc_sector()</code>, which applies SolidPython's <code>linear_extrude()</code> operation to produce three-dimensional solid primitives.</p>
+
+<p>The <code>TrackGenerator</code> class in <code>track_generator.py</code> transforms abstract bit patterns into physical geometry. Its <code>generate_all_tracks()</code> method iterates through track indices, calling <code>extract_track_pattern()</code> for each to obtain binary sequences. The <code>generate_track_cutouts()</code> method then processes these sequences, identifying contiguous runs of '1' bits through simple state machine logic. For each run, <code>_create_position_cutout()</code> computes the appropriate angular span and radial bounds, invoking <code>create_arc_sector()</code> to generate the corresponding cutout geometry. The method accumulates these cutouts in a list, which <code>generate_all_cutouts()</code> subsequently combines using SolidPython's <code>union()</code> operation to form a single composite cutout object.</p>
+
+<p>Final assembly occurs in the <code>EncoderAssembler</code> class within <code>assembly.py</code>. The <code>create_base_disk()</code> method constructs the solid foundation using <code>create_full_arc_disk()</code>, whilst <code>create_limit_bumpers()</code> generates optional mechanical triggers at the extremal positions. The <code>assemble_complete_disk()</code> method orchestrates the complete assembly: it instantiates a <code>TrackGenerator</code>, obtains the composite cutout geometry, unions the solid components, and applies SolidPython's <code>difference()</code> operation to subtract cutouts from solid material. The <code>validate_assembly()</code> method performs post-assembly checks, verifying that all tracks fit within geometric bounds and that no components interfere with mounting features.</p>
+
+<p>Parameter management resides in the <code>utils</code> module. The <code>EncoderParameters</code> dataclass in <code>parameters.py</code> encapsulates all configuration values, providing computed properties like <code>radius_outer</code>, <code>angular_resolution_deg</code>, and <code>track_pitch_mm</code> that derive from the fundamental parameters. The <code>ParameterValidator</code> class implements multi-stage validation through methods like <code>_validate_basic_geometry()</code>, <code>_validate_encoding_parameters()</code>, and <code>_validate_manufacturing_constraints()</code>. Each method appends detected issues to internal error and warning lists, which <code>validate_all()</code> returns as a tuple indicating overall validity status.</p>
+
+<p>The <code>PrintabilityAnalyzer</code> class in <code>printer_constraints.py</code> evaluates manufacturing feasibility. Its <code>analyze_encoder_design()</code> method computes minimum feature dimensions at various radii, checks gap widths against nozzle diameter constraints, and verifies that track spacing permits reliable material deposition. The analyser returns detailed diagnostics including specific dimensional violations and recommendations for parameter adjustment.</p>
+
+<p>Evolutionary optimisation integrates these components through the <code>genetic_optimizer.py</code> module. The <code>ParameterGenome</code> class encapsulates a complete parameter set, providing methods for <code>mutate()</code> and <code>crossover()</code> operations that respect parameter bounds and maintain fixed constraints. The <code>EncoderOptimizer</code> class implements the genetic algorithm: <code>initialize_population()</code> creates random genomes, <code>evaluate_fitness()</code> computes multi-objective scores by invoking <code>ParameterValidator</code>, <code>GrayCodeValidator</code>, and <code>PrintabilityAnalyzer</code> on each genome's parameters. The <code>evolve_generation()</code> method executes one cycle of tournament selection via <code>select_parents()</code>, applies genetic operators, and updates the population. The main <code>optimize()</code> method iterates this process for the specified generation count, tracking the best solution through the <code>best_genome</code> attribute. Upon completion, <code>export_best_solution()</code> serialises the optimised parameters to JSON format for subsequent use or analysis.</p>
+
+<p>The command-line interface in <code>encoder_generator.py</code> orchestrates the complete generation pipeline. The <code>load_configuration()</code> function instantiates <code>EncoderParameters</code> from predefined configurations or custom JSON files. The <code>validate_design()</code> function performs comprehensive validation across all subsystems, whilst <code>generate_encoder()</code> manages the full generation sequence: parameter loading, validation, Gray code pattern generation, geometric assembly, and OpenSCAD file export via <code>scad_render_to_file()</code>. The <code>export_pattern_data()</code> function provides an alternative output path, serialising track patterns and metadata to JSON for analysis or alternative rendering pipelines.</p>
+
+<p>This architecture achieves modularity through well-defined interfaces between subsystems. The Gray code module operates independently of geometry, the geometry module requires only bit patterns and dimensional parameters, and the validation subsystems accept parameter objects without coupling to generation logic. This separation facilitates testing individual components in isolation and enables alternative implementations of any layer without affecting others.</p>
+
+<h3>Generation Pipeline</h3>
+
+<p>Encoder disk generation proceeds through a well-defined pipeline with explicit validation at each stage. The process begins with parameter specification, either from predefined configurations (default, high-resolution, compact) or custom values loaded from configuration files. The validation subsystem evaluates these parameters against all constraint categories, reporting errors or warnings that indicate potential design issues.</p>
+
+<p>Upon successful validation, the Gray code pattern generator produces bit sequences for all tracks. For each position $p \in [0, N-1]$, the system computes Gray code value and extracts the $m$ constituent bits. These bits assemble into track patterns—binary sequences indicating which positions require transmissive apertures on each track.</p>
+
+<p>The track generator then transforms binary patterns into three-dimensional geometric primitives. The algorithm identifies maximal contiguous subsequences of '1' bits and generates corresponding arc sector cutouts at appropriate radii and angular positions. All cutouts across all tracks combine via union operation to form a single composite cutout geometry, improving computational efficiency.</p>
+
+<p>Base disk construction creates an annular sector spanning inner to outer radius over the specified arc angle. Optional limit switch bumpers—rectangular protrusions at the 0° and terminal positions—provide mechanical triggers for detecting extreme rudder positions. These bumpers serve as failsafe indicators independent of the optical encoding system.</p>
+
+<p>Final disk assembly employs Boolean difference: the union of solid components (base disk and optional bumpers) minus the union of all cutout patterns. This operation yields a single coherent three-dimensional solid representing the complete encoder disk geometry.</p>
+
+<p>The SolidPython library renders this geometric representation to OpenSCAD source code—a text-based declarative description of the geometry suitable for visualization and STL export. The generated file includes header comments documenting all design parameters and recommended fabrication settings (layer height, perimeter count, infill percentage, print speed, material selection) derived from the printability analysis.</p>
+
+<h3>Observations on Implementation</h3>
+
+<p>The development of this system revealed that the distance between mathematical abstraction and physical realization represents the domain where engineering problems become substantive. While Gray code's theoretical properties are well-established, achieving reliable performance in physical systems requires addressing additive manufacturing limitations, optical sensor characteristics, mechanical tolerances, and the complex interactions between geometric parameters.</p>
+
+<p>The genetic algorithm initially served as a computational convenience—a method to avoid manual parameter optimization. During development, it demonstrated broader utility: the algorithm explores parameter combinations that would not emerge from intuitive reasoning or conventional design heuristics. Unconstrained by preconceptions about viable configurations, the evolutionary search identifies solutions that satisfy multiple competing objectives in non-obvious ways. The fitness function and constraint definitions encode engineering knowledge about what constitutes a valid design, while the search algorithm discovers how to achieve those goals within the defined parameter space.</p>
+
+<p>The most significant outcome extends beyond the specific rudder encoder: the parametric design system provides adaptability to varying requirements. Modifications to mounting constraints, resolution specifications, or manufacturing capabilities require parameter adjustments rather than fundamental redesign. The same codebase that generated the rudder encoder can produce encoders for alternative applications with different position counts, arc angles, or dimensional constraints.</p>
+
+<h3>Future Work</h3>
+
+<p>Part 3 will examine the sensor electronics and firmware implementation: the optical sensing circuit design incorporating infrared LED/phototransistor pairs, signal conditioning and digitization, ROS-2 interface development, noise mitigation strategies, calibration procedures, and integration with the SCANS autopilot architecture. Additionally, I will discuss the mechanical mounting solution, fabrication methods, and empirical validation through testing of the first prototype.</p>
+
+<p>The design demonstrates that sophisticated computational tools augment rather than replace engineering judgment. The genetic algorithm does not autonomously design the encoder—it explores the design space I have defined through parameter selection, constraint formulation, and fitness function specification. The quality of the optimization result depends critically on how accurately these elements capture the characteristics of effective encoder designs.</p>
+
+<p>The implementation code is available via GitHub, and the current optimized design has been prepared for fabrication. The subsequent phase involves empirical validation: determining whether this theoretical encoder performs reliably under operational conditions.</p>
+
+<hr />
+
+<p><em>Published November 8, 2025</em></p>
