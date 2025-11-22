@@ -2,6 +2,10 @@
 
 Generates 3D-printable optical encoder disks using Gray code for absolute position sensing. Outputs OpenSCAD files for FDM fabrication.
 
+Discussion regarding this projecrt can be found on https://Susannecoates.com:
+1. https://susannecoates.com/building-a-custom-optical-encoder-for-rudder-position-sensing-part-1/
+2. https://susannecoates.com/building-a-custom-optical-encoder-for-rudder-position-sensing-part-2/
+
 ## Requirements
 
 - Python 3.8+
